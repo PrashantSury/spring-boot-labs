@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The build file for Ledgerly Core. Maven reads it to know what
+     the project is called, which libraries it needs and how to
+     build it. Today it is the blank demo every new project starts
+     as. This is the file you edit. It has tasks 1 to 6.
+
+     It is a standalone pom, not part of the chapter build, so a
+     typo here can never stop the checks from starting. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Task 2: inherit from Spring Boot's parent
+
+       Add a parent element here, directly inside project and
+       BEFORE the project's own coordinates.
+
+         Parent:  org.springframework.boot : spring-boot-starter-parent
+         Version: the exact version this repo uses (see the root
+                  pom.xml, the version in its parent element).
+                  Three numbers, not two.
+
+       Give the parent an empty relativePath element too, so
+       Maven fetches it from the repository, not from the folder
+       above. -->
+
+  <!-- Task 1: Ledgerly Core's own coordinates
+
+       The three lines below are the project's own name. Change
+       them to:   com.ledgerly : ledgerly-core : 0.1.0-SNAPSHOT
+       (These are NOT the ones inside parent or a dependency.) -->
+  <groupId>com.example</groupId>
+  <artifactId>demo</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Ledgerly Core</name>
+  <description>Accounts, customers and transfers for Ledgerly Bank</description>
+
+  <properties>
+    <!-- Task 3: build for Java 21
+
+         The parent reads java.version to set the compiler's
+         release. 17 is its default. Ledgerly runs on 21. -->
+    <java.version>17</java.version>
+  </properties>
+
+  <dependencies>
+    <!-- Task 4 (Interview): the web starter
+
+         Add a dependency on  org.springframework.boot :
+         spring-boot-starter-webmvc.  No version element and no
+         scope element (the default, compile, is right).
+
+         The checks also need the parent from task 2.
+
+         Be ready to answer: who picks this starter's version,
+         and what changes when you move Spring Boot from one
+         release to the next? -->
+
+    <!-- Task 5: scopes
+
+         Add TWO more dependencies, both without a version:
+
+           org.springframework.boot : spring-boot-starter-webmvc-test
+              scope test      (only tests need it; it must not
+                               ship in the jar)
+           com.h2database : h2
+              scope runtime   (the app needs it to run, but your
+                               code never imports it) -->
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Packages the app as one runnable jar. Note: no version
+           here either. The parent picks it. -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+  <!-- Task 6: a uat profile
+
+       Add a profiles element here, as the LAST element inside
+       project, with one profile whose id is uat. Inside that
+       profile add its own properties element that sets
+         spring-boot.run.profiles  =  uat
+       The property goes inside the profile, not in the project's
+       main properties above. -->
+</project>
