@@ -38,7 +38,7 @@
        (These are NOT the ones inside parent or a dependency.) -->
   <groupId>com.ledgerly</groupId>
   <artifactId>ledgerly-core</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.1.0-SNAPSHOT</version>
   <name>Ledgerly Core</name>
   <description>Accounts, customers and transfers for Ledgerly Bank</description>
 
@@ -84,7 +84,7 @@
           <scope>test</scope>
       </dependency>
       <dependency>
-          <groupId> com.h2database</groupId>
+          <groupId>com.h2database</groupId>
           <artifactId>h2</artifactId>
           <scope>runtime</scope>
       </dependency>
