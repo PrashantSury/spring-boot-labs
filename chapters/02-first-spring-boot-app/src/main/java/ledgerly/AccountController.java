@@ -1,6 +1,8 @@
 package ledgerly;
 
 import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -23,8 +25,9 @@ public class AccountController {
   //     Ledgerly is open
   // (Not JSON. Just a String.) The method exists, but no URL is
   // mapped to it yet, so today the answer is 404 Not Found.
+  @GetMapping("/status")
   String status() {
-    throw new UnsupportedOperationException("TODO task 1: answer GET /status");
+    return "Ledgerly is open";
   }
 
   // Task 2: list the accounts as JSON at GET /accounts
