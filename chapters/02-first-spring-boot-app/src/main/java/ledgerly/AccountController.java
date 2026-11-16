@@ -3,6 +3,7 @@ package ledgerly;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -35,8 +36,9 @@ public class AccountController {
   // Answer 200 with every account in ACCOUNTS, in the same order:
   // four accounts, Asha Rao first and Imran Khan last. Each Account
   // is written by Spring as {"number":..., "holder":..., "balance":...}.
+  @GetMapping ("/accounts")
   List<Account> accounts() {
-    throw new UnsupportedOperationException("TODO task 2: return the accounts");
+     return ACCOUNTS;
   }
 
   // Task 3: mask an account number at GET /accounts/{number}/masked
@@ -46,8 +48,12 @@ public class AccountController {
   //     GET /accounts/1000234567/masked   ->   ******4567
   // Keep the number a String. A number like 0000123456 starts with
   // zeros and an int would lose them.
-  String masked(String number) {
-    throw new UnsupportedOperationException("TODO task 3: mask the number");
+  @GetMapping("/accounts/{number}/masked")
+  String masked(@PathVariable("number") String number) {
+    return "******" + lastFour(number);
+  }
+  private String lastFour(String s) {
+    return s.length() <= 4 ? s : s.substring(s.length() - 4);
   }
 
   // Task 4: accounts above a balance at GET /accounts/above?balance=N
@@ -58,6 +64,7 @@ public class AccountController {
   //     ?balance=10000  -> Asha Rao, Neha Iyer
   //     ?balance=52000  -> Neha Iyer only (52000 is not more than 52000)
   // A missing or non-numeric balance is a 400 automatically. Don't write that.
+  @GetMapping("/accounts/above?balance=N")
   List<Account> above(int balance) {
     throw new UnsupportedOperationException("TODO task 4: filter the accounts");
   }
