@@ -1,9 +1,11 @@
 package ledgerly;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -38,7 +40,7 @@ public class AccountController {
   // is written by Spring as {"number":..., "holder":..., "balance":...}.
   @GetMapping ("/accounts")
   List<Account> accounts() {
-     return ACCOUNTS;
+    return ACCOUNTS;
   }
 
   // Task 3: mask an account number at GET /accounts/{number}/masked
@@ -56,17 +58,25 @@ public class AccountController {
     return s.length() <= 4 ? s : s.substring(s.length() - 4);
   }
 
-  // Task 4: accounts above a balance at GET /accounts/above?balance=N
-  //
-  // The limit comes from the query string, as an int. Answer with
-  // the accounts whose balance is MORE than N, as a JSON list in
-  // ACCOUNTS order.
-  //     ?balance=10000  -> Asha Rao, Neha Iyer
-  //     ?balance=52000  -> Neha Iyer only (52000 is not more than 52000)
-  // A missing or non-numeric balance is a 400 automatically. Don't write that.
-  @GetMapping("/accounts/above?balance=N")
-  List<Account> above(int balance) {
-    throw new UnsupportedOperationException("TODO task 4: filter the accounts");
+/*   Task 4: accounts above a balance at GET /accounts/above?balance=N
+
+   The limit comes from the query string, as an int. Answer with
+   the accounts whose balance is MORE than N, as a JSON list in
+   ACCOUNTS order.
+       ?balance=10000  -> Asha Rao, Neha Iyer
+       ?balance=52000  -> Neha Iyer only (52000 is not more than 52000)
+   A missing or non-numeric balance is a 400 automatically. Don't write that.*/
+
+  @GetMapping("/accounts/above")
+  List<Account> above(@RequestParam int balance) {
+
+    List<Account> accounts = new ArrayList<>();
+    for(Account acc:ACCOUNTS){
+     if( acc.balance() > balance ){
+       accounts.add(acc);
+     }
+    }
+    return accounts;
   }
 
   // Task 5: the transfer fee at GET /fee?amount=N&express=true
@@ -79,7 +89,13 @@ public class AccountController {
   //     /fee?amount=200                 -> 10     (1% would be 2, minimum is 10)
   //     /fee?amount=5000&express=true   -> 100
   // The answer is a plain number.
-  int fee(int amount, boolean express) {
-    throw new UnsupportedOperationException("TODO task 5: work out the fee");
+  @GetMapping("/fee")
+  int fee(@RequestParam int amount, @RequestParam(required = false) boolean express ) {
+
+       int fee =Math.min(amount / 100,10);
+       if(express){
+         return fee * 2;
+       }
+       return fee;
   }
 }
