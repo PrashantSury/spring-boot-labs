@@ -90,9 +90,9 @@ public class AccountController {
   //     /fee?amount=5000&express=true   -> 100
   // The answer is a plain number.
   @GetMapping("/fee")
-  int fee(@RequestParam int amount, @RequestParam(required = false) boolean express ) {
+  int fee(@RequestParam int amount, @RequestParam(defaultValue = "false") boolean express ) {
 
-       int fee =Math.min(amount / 100,10);
+       int fee =Math.max(amount / 100,10);
        if(express){
          return fee * 2;
        }
