@@ -1,6 +1,7 @@
 package ledgerly;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
  * Ledgerly starts here. This file has task 6.
@@ -19,6 +20,7 @@ import org.springframework.boot.SpringApplication;
 //
 // ONE annotation gives you all three. Be ready to name the three
 // things it switches on, and what each one does.
+@SpringBootApplication
 public class LedgerlyApplication {
 
   public static void main(String[] args) {
