@@ -1,6 +1,8 @@
 package ledgerly;
 
 import java.util.UUID;
+
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 // would print the same receipt id. Change the scope so that asking
 // the context for a Receipt gives a new object each time.
 @Component
+@Scope (scopeName="prototype")
 public class Receipt {
 
   private final String id = UUID.randomUUID().toString().substring(0, 8);

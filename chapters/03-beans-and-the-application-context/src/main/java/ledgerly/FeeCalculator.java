@@ -1,5 +1,7 @@
 package ledgerly;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Works out the fee for a transfer: 1% of the amount, at least 10.
  * The logic is finished. Your job in task 1 is to make Spring own it.
@@ -11,6 +13,7 @@ package ledgerly;
 // Mark the class so that component scanning finds it and puts one
 // instance in the context. Its default bean name will be
 // "feeCalculator" (the class name with a lower-case first letter).
+  @Component("feeCalculator")
 public class FeeCalculator {
 
   public int feeFor(int amount) {

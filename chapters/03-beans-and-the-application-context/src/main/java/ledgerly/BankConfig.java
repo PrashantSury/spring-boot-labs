@@ -1,7 +1,11 @@
 package ledgerly;
 
 import java.time.Clock;
+import java.time.ZoneId;
+
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Beans you cannot mark with an annotation, because you do not own the
@@ -16,8 +20,11 @@ public class BankConfig {
   // Make this method produce a bean (annotate it) and give it a body:
   // a Clock fixed to the zone Asia/Kolkata. Use Clock.system(ZoneId.of(...)).
   // The bean's name is the method name: bankClock.
+  @Bean(name="bankClock")
   Clock bankClock() {
-    return null; // TODO task 2
+    return Clock.system(ZoneId.of(
+            "Asia/Kolkata"
+    ));
   }
 
   // Task 3: two interest policies, with explicit names
@@ -36,11 +43,14 @@ public class BankConfig {
   // After task 3, context.getBean(InterestPolicy.class) fails: Spring
   // finds two candidates and will not guess. Mark the savings policy
   // as the preferred one (the primary). The current policy stays normal.
-  InterestPolicy savings() {
-    return null; // TODO tasks 3 and 5
-  }
 
+  @Primary
+  @Bean(name="savingsPolicy")
+  InterestPolicy savings() {
+    return new InterestPolicy("savings", 3.5);
+  }
+  @Bean(name="currentPolicy")
   InterestPolicy current() {
-    return null; // TODO task 3
+    return new InterestPolicy("current", 0.0);
   }
 }

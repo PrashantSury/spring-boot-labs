@@ -7,6 +7,7 @@ Question: Spring beans are singletons by default.
 3. What is the difference between marking a class with `@Component` and writing a `@Bean` method?
 
 Write 4 to 8 sentences below, in your own words, as you would say it in an interview.
-Delete the line that says TODO.
 
-TODO: write your answer here
+1. Singleton mean there is only one copy per application context and it is different from gang of four design pattern.
+2. No. It is not make the code thread safe. we can make the deep copies of the mutable fields.
+3. We can annotate @Componet with our own created class and we need some configuration in the JDk's class then we annotate the @Bean to the method in the Configuration class.
