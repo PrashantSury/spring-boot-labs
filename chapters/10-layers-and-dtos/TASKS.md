@@ -1,72 +1,72 @@
 # Chapter 10 · Layers and DTOs
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter10CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter10CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter10CheckTest` 17/17 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/10-layers-and-dtos test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/10-layers-and-dtos spring-boot:run` (port 8084).
+- Fresh stub: 0/17 green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | Controller, service, repository: one job each | not written yet | — | checks not written yet | ⬜ |
-| 2 | Request and response DTOs as records | not written yet | — | checks not written yet | ⬜ |
-| 3 | Mapping entities to DTOs by hand, and when a mapper library is worth it | not written yet | — | checks not written yet | ⬜ |
-| 4 | Keeping business rules out of controllers | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `CustomerResponse(id, name, maskedPan)` + `mask` + `toResponse` | `src/main/java/ledgerly/web/CustomerResponse.java`, `service/CustomerMapper.java` | `mvn -pl chapters/10-layers-and-dtos test -Popen` | task 1 checks green | ⬜ |
+| 2 | `open()` rules: name, PAN, duplicate, pin | `service/CustomerService.java` | same | task 2 checks green | ⬜ |
+| 3 | Thin controller on `CustomerService`: 201/400/404/409 | `web/CustomerController.java` | same | task 3 checks green | ⬜ |
+| 4 | `summary()` in the service + endpoint | `CustomerService.java`, `CustomerController.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** layers and DTOs | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- Why should a controller never return a JPA entity? Where does a rule like "minimum balance 1,000" live, and why?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Controller, service, repository: one job each?
+- Why a DTO and not the entity? A Ledgerly example of the leak.
+- Why the PAN rule in the service, and what it does to your tests?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Putting logic in the controller makes it hard to test without MockMvc
-- Never expose a field like `pin` or `internalNotes` by returning the entity
+- Never return `Customer`.
+- Upper-case the PAN **before** the duplicate check.
+- Controller takes the service only.
 
 ## ❓ Checks (letters only)
 
-1. Returning the `Account` entity from a controller mainly risks: A. slower JSON · B. leaking fields like `pin` and coupling the API to the schema
-2. "Minimum balance 1,000" belongs in: A. the controller · B. the service · C. the repository
-3. A client sends `"balance": 999999` in a deposit request bound to the entity. This is: A. fine · B. mass assignment
+1. A new field `kycScore` is added to `Customer`. With a DTO, the JSON: A. gains `kycScore` · B. stays the same
+2. The best place for "PAN must match `[A-Z]{5}[0-9]{4}[A-Z]`": A. controller · B. service · C. repository
+3. Testing the duplicate-PAN rule with the rule in the service needs: A. MockMvc · B. a running server · C. plain `new CustomerService(...)`
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Returning the `Account` entity straight from the controller leaks internal fields and ties the API to the database.
+**Why it matters.** "Why DTOs?" and "where do business rules go?" come up in every backend interview, and leaking a field from an entity is a classic bank audit finding.
 
-**The concept.** The controller speaks HTTP, the service holds the rules, the repository talks to the database. The API takes and returns DTOs (records), never entities.
+**The concept.** Each layer has one reason to change: HTTP shape (controller), rules (service), storage (repository). The DTO is the contract with clients; it changes only when the API changes, not when the table does.
 
-**Small example.**
+**Small example.** Stored row: `Customer(101, "Asha Rao", "ABCPR1234F", "4821", "VIP; called about loan", [50000, -1200, -800])`. Mapping by hand:
 
 ```java
-@Entity class Account {           // what the database holds
-    Long id; String number; BigDecimal balance; String pin; String internalNotes;
-}
-record AccountView(String maskedNumber, BigDecimal balance) {   // what the client sees
-    static AccountView of(Account a) {
-        return new AccountView("******" + a.getNumber().substring(a.getNumber().length() - 4), a.getBalance());
-    }
-}
+new CustomerResponse(c.id(), c.name(), mask(c.pan()))
 ```
 
-| Case | Result | In or out, and why |
+Real output: `{"id":101,"name":"Asha Rao","maskedPan":"XXXXXX234F"}`
+
+| Stored field | In the DTO? | Why |
 |---|---|---|
-| Return the entity | `{"id":1,"number":"0000123456","balance":52000,"pin":"4821","internalNotes":"VIP, waive fees"}` | leaks `pin` and notes ❌ |
-| Return `AccountView.of(account)` | `{"maskedNumber":"******3456","balance":52000}` | only what the client needs ✅ |
-| Bind the request straight into the entity | a client can send `"balance": 999999` | mass assignment ❌ |
-| Bind into `record DepositRequest(BigDecimal amount)` | only `amount` can arrive | the DTO is the contract ✅ |
+| `id`, `name` | in | the app shows them |
+| `pan` | masked | the app shows the last 4 only |
+| `pin` | out | a secret |
+| `internalNotes` | out | for staff only |
+| `transactions` | out | separate `/summary` endpoint |
 
 **Gotchas**
-- Putting logic in the controller makes it hard to test without MockMvc.
-- Never expose a field like `pin` or `internalNotes` by returning the entity.
-- Entities with lazy relations can fail or loop when Jackson serialises them.
+- A service method should not take or return `ResponseEntity`; that couples it to HTTP.
+- Exceptions are the service's way to say "no" (`DuplicateCustomerException`); the controller turns them into statuses (chapter 13 does it centrally).
+- Mapping by hand is 3 lines per DTO and easy to read; add a mapper library only when it hurts.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** The API should not change when a column changes.
-2. **B.** Business rules live in the service so every caller gets them.
-3. **B.** Bind requests to DTOs with only the allowed fields.
+1. **B.** The DTO decides the JSON, so a new stored field stays hidden.
+2. **B.** It's a business rule.
+3. **C.** Plain Java, which is fast and needs no Spring.
 
 </details>

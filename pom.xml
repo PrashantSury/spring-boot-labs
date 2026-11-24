@@ -48,5 +48,8 @@
     <module>chapters/07-the-bean-lifecycle</module>
     <module>chapters/08-how-spring-handles-requests</module>
     <module>chapters/09-requests-and-responses</module>
+    <module>chapters/10-layers-and-dtos</module>
+    <module>chapters/11-updating-and-deleting</module>
+    <module>chapters/12-validating-input</module>
   </modules>
 </project>
