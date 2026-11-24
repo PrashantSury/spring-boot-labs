@@ -1,75 +1,70 @@
 # Chapter 25 · Users from the database
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter25CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter25CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter25CheckTest` 12/12 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/25-users-from-the-database test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/25-users-from-the-database spring-boot:run` (port 8091; H2 in memory, no Docker).
+- Fresh stub: 1/12 green (the `@WithMockUser` example).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `UserDetailsService` and `UserDetails` | not written yet | — | checks not written yet | ⬜ |
-| 2 | `PasswordEncoder` and BCrypt | not written yet | — | checks not written yet | ⬜ |
-| 3 | `AuthenticationManager` and `DaoAuthenticationProvider` | not written yet | — | checks not written yet | ⬜ |
-| 4 | Testing with `@WithMockUser` | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `loadUserByUsername`: hash, role, disabled, not found | `src/main/java/ledgerly/DbUserDetailsService.java` | `mvn -pl chapters/25-users-from-the-database test -Popen` | task 1 checks green | ⬜ |
+| 2 | `register`: 409 on duplicate, `encoder.encode` | `RegistrationService.java` | same | task 2 checks green | ⬜ |
+| 3 | `ProviderManager(DaoAuthenticationProvider)`; log without password | `SecurityConfig.java`, `AuthService.java` | same | task 3 checks green | ⬜ |
+| 4 | **(Interview)** UDS, BCrypt, vague errors, logs | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 4)
 
-- Why does Spring answer the same way for an unknown user and a wrong password? Why BCrypt and not SHA-256?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- How is a user loaded from your DB at login?
+- How are passwords stored; why BCrypt?
+- Why one vague error; what never goes in logs?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Never store or log a plain password
-- `BadCredentialsException` is deliberately vague about which part was wrong
+- `matches`, not `equals`, for hashes.
+- Don't reveal which part was wrong.
+- Never log passwords.
 
 ## ❓ Checks (letters only)
 
-1. Unknown username at login gives the client: A. "user not found" · B. the same failure as a wrong password
-2. The database column holds: A. the password · B. a BCrypt hash
-3. Why is BCrypt slow on purpose? A. a bug · B. to make guessing leaked hashes expensive
+1. `encoder.encode("asha-pass")` called twice gives: A. the same string · B. two different strings
+2. Unknown username at login, default `DaoAuthenticationProvider`. The caller sees: A. `UsernameNotFoundException` · B. `Bad credentials`
+3. Why BCrypt over SHA-256? A. shorter output · B. salted and deliberately slow
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Bank staff are stored in a table, with hashed passwords, not in a config file.
+**Why it matters.** Password storage is an audit item at every bank and a standard interview question ("how do you store passwords?"). Getting it wrong is a breach even if nobody has broken in yet.
 
-**The concept.** Spring Security loads a user through `UserDetailsService` and checks the password with a `PasswordEncoder`. The database stores only a BCrypt hash.
+**The concept.** Spring Security never touches your table directly: it calls `UserDetailsService.loadUserByUsername`, gets a `UserDetails` (username, hash, authorities, flags), and lets the `PasswordEncoder` compare the typed password with the hash.
 
-**Small example.**
+**Small example.** Real rows after startup (hashes cut):
 
-```java
-@Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
+| username | password_hash | role | enabled |
+|---|---|---|---|
+| asha | `$2a$10$Q3w…` | USER | true |
+| ops | `$2a$10$7Lk…` | ADMIN | true |
+| ravi | `$2a$10$pZx…` | USER | false |
 
-@Service
-class StaffUserDetailsService implements UserDetailsService {
-    public UserDetails loadUserByUsername(String username) {
-        Staff s = repo.findByUsernameIgnoreCase(username)
-                      .orElseThrow(() -> new UsernameNotFoundException("not found"));
-        return User.withUsername(s.getUsername()).password(s.getPasswordHash())
-                   .roles(s.getRole()).disabled(!s.isEnabled()).build();
-    }
-}
-```
-
-| Case | Result | In or out, and why |
+| Login attempt | Result | Why |
 |---|---|---|
-| Right username and password | authenticated | `matches(raw, hash)` is true |
-| Right username, wrong password | `BadCredentialsException` | vague on purpose |
-| Unknown username | also `BadCredentialsException` | the not-found is hidden so usernames can't be probed |
-| `encode("<pw>")` twice | two different hashes, both start `$2a$10$` | a random salt each time |
-| A test with `@WithMockUser(roles = "TELLER")` | runs as an authenticated teller | no real login needed |
+| asha / asha-pass | 200 | hash matches, enabled |
+| asha / guess | 401 `Bad credentials` | hash does not match |
+| nobody / guess | 401 `Bad credentials` | unknown user, same answer on purpose |
+| ravi / ravi-pass | 401 | right password, but `disabled(true)` |
 
 **Gotchas**
-- Never store or log a plain password.
-- `BadCredentialsException` is deliberately vague about which part was wrong.
+- `{bcrypt}$2a$...` prefixes come from `DelegatingPasswordEncoder` (lets you migrate algorithms later).
+- BCrypt only uses the first 72 bytes of a password.
+- `@WithMockUser` skips authentication entirely: it tests authorization rules, not your `UserDetailsService`.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Otherwise attackers learn which usernames exist.
-2. **B.** One-way, salted, slow.
-3. **B.** Speed helps attackers.
+1. **B.** A new random salt each time.
+2. **B.** `hideUserNotFoundExceptions` is on by default.
+3. **B.** Salt defeats rainbow tables; slowness defeats brute force.
 
 </details>

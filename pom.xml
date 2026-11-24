@@ -63,5 +63,8 @@
     <module>chapters/22-the-persistence-context</module>
     <module>chapters/23-fetching-and-the-n-plus-1-problem</module>
     <module>chapters/24-spring-security-basics</module>
+    <module>chapters/25-users-from-the-database</module>
+    <module>chapters/26-jwt-fundamentals</module>
+    <module>chapters/27-jwt-login-and-the-jwt-filter</module>
   </modules>
 </project>
