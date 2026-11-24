@@ -60,5 +60,8 @@
     <module>chapters/19-projections-and-aggregations</module>
     <module>chapters/20-entity-relationships</module>
     <module>chapters/21-cascading-and-transactions</module>
+    <module>chapters/22-the-persistence-context</module>
+    <module>chapters/23-fetching-and-the-n-plus-1-problem</module>
+    <module>chapters/24-spring-security-basics</module>
   </modules>
 </project>
