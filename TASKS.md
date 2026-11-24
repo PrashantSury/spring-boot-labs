@@ -8,7 +8,7 @@ Stuck 15 min → ask Lumi.
 | 1 | 🏦 Banking app, Module 1 (AuthN / AuthZ), 8 tasks | [java-switch-journey `banking-app/TASKS.md`](https://github.com/PrashantSury/java-switch-journey/blob/main/banking-app/TASKS.md) | ~45 min a day | Module 1 tests green + interview ≥ 7 | 🟡 active |
 | 2 | 🌱 Ch 3 interview re-answer (L1-L5) | `chapters/03-beans-and-the-application-context/interview-answer.md` | ~25 min | graded ≥ 7 (now 5/10) | 🔴 open |
 | 3 | 🌱 Ch 3 checks (L6-L8) | chat, letters only | 3 min | 3 answers | ⬜ |
-| 4 | 🌱 Chapter 4 onward | `chapters/04-…` | — | — | ⏸️ paused |
+| 4 | 🌱 Chapter 4 onward | each chapter's `TASKS.md` (table below) | — | — | ⏸️ paused |
 
 ## 1. 🏦 Banking app (active)
 
@@ -67,4 +67,48 @@ Stuck 15 min → ask Lumi.
 
 </details>
 
-**Chapter 4 onward (paused):** `chapters/04-dependency-injection` → `41-interview-data-and-web`. Each chapter keeps its own `README.md`, stubs and `ChapterNNCheckTest`; nothing is assigned until the labs are un-paused.
+## 📚 All chapters (start each chapter with its `TASKS.md`, then the README)
+
+| Chapter | Title | Status | Link |
+|---|---|---|---|
+| 1 | Maven and the pom.xml | ✅ 19/19 · 7/10 | [TASKS](chapters/01-maven-and-the-pom/TASKS.md) |
+| 2 | Your first Spring Boot app | ✅ 19/19 · 7/10 | [TASKS](chapters/02-first-spring-boot-app/TASKS.md) |
+| 3 | Beans and the application context | 🔴 code 15/15 · interview 5/10 | [TASKS](chapters/03-beans-and-the-application-context/TASKS.md) |
+| 4 | Dependency injection | ⬜ paused | [TASKS](chapters/04-dependency-injection/TASKS.md) |
+| 5 | Configuration and profiles | ⬜ paused | [TASKS](chapters/05-configuration-and-profiles/TASKS.md) |
+| 6 | How auto-configuration works | ⬜ paused | [TASKS](chapters/06-how-auto-configuration-works/TASKS.md) |
+| 7 | The bean lifecycle | ⬜ paused | [TASKS](chapters/07-the-bean-lifecycle/TASKS.md) |
+| 8 | How Spring handles requests | ⬜ paused | [TASKS](chapters/08-how-spring-handles-requests/TASKS.md) |
+| 9 | Requests and responses | ⬜ paused | [TASKS](chapters/09-requests-and-responses/TASKS.md) |
+| 10 | Layers and DTOs | ⬜ paused | [TASKS](chapters/10-layers-and-dtos/TASKS.md) |
+| 11 | Updating and deleting | ⬜ paused | [TASKS](chapters/11-updating-and-deleting/TASKS.md) |
+| 12 | Validating input | ⬜ paused | [TASKS](chapters/12-validating-input/TASKS.md) |
+| 13 | Handling errors | ⬜ paused | [TASKS](chapters/13-handling-errors/TASKS.md) |
+| 14 | Filters and interceptors | ⬜ paused | [TASKS](chapters/14-filters-and-interceptors/TASKS.md) |
+| 15 | Plain SQL with JdbcClient | ⬜ paused | [TASKS](chapters/15-plain-sql-with-jdbcclient/TASKS.md) |
+| 16 | JPA entities | ⬜ paused | [TASKS](chapters/16-jpa-entities/TASKS.md) |
+| 17 | Repositories and query methods | ⬜ paused | [TASKS](chapters/17-repositories-and-query-methods/TASKS.md) |
+| 18 | Pagination and sorting | ⬜ paused | [TASKS](chapters/18-pagination-and-sorting/TASKS.md) |
+| 19 | Projections and aggregations | ⬜ paused | [TASKS](chapters/19-projections-and-aggregations/TASKS.md) |
+| 20 | Entity relationships | ⬜ paused | [TASKS](chapters/20-entity-relationships/TASKS.md) |
+| 21 | Cascading and transactions | ⬜ paused | [TASKS](chapters/21-cascading-and-transactions/TASKS.md) |
+| 22 | The persistence context | ⬜ paused | [TASKS](chapters/22-the-persistence-context/TASKS.md) |
+| 23 | Fetching and the N+1 problem | ⬜ paused | [TASKS](chapters/23-fetching-and-the-n-plus-1-problem/TASKS.md) |
+| 24 | Spring Security basics | ⬜ paused | [TASKS](chapters/24-spring-security-basics/TASKS.md) |
+| 25 | Users from the database | ⬜ paused | [TASKS](chapters/25-users-from-the-database/TASKS.md) |
+| 26 | JWT fundamentals | ⬜ paused | [TASKS](chapters/26-jwt-fundamentals/TASKS.md) |
+| 27 | JWT login and the JWT filter | ⬜ paused | [TASKS](chapters/27-jwt-login-and-the-jwt-filter/TASKS.md) |
+| 28 | Roles and authorities | ⬜ paused | [TASKS](chapters/28-roles-and-authorities/TASKS.md) |
+| 29 | Method security | ⬜ paused | [TASKS](chapters/29-method-security/TASKS.md) |
+| 30 | Access and refresh tokens | ⬜ paused | [TASKS](chapters/30-access-and-refresh-tokens/TASKS.md) |
+| 31 | Security errors | ⬜ paused | [TASKS](chapters/31-security-errors/TASKS.md) |
+| 32 | Caching | ⬜ paused | [TASKS](chapters/32-caching/TASKS.md) |
+| 33 | Transactions and locking | ⬜ paused | [TASKS](chapters/33-transactions-and-locking/TASKS.md) |
+| 34 | AOP | ⬜ paused | [TASKS](chapters/34-aop/TASKS.md) |
+| 35 | Calling other services with RestClient | ⬜ paused | [TASKS](chapters/35-calling-other-services-with-restclient/TASKS.md) |
+| 36 | Actuator | ⬜ paused | [TASKS](chapters/36-actuator/TASKS.md) |
+| 37 | Events and scheduling | ⬜ paused | [TASKS](chapters/37-events-and-scheduling/TASKS.md) |
+| 38 | Project: the transfers service | ⬜ paused | [TASKS](chapters/38-project-the-transfers-service/TASKS.md) |
+| 39 | Project: secure transfers | ⬜ paused | [TASKS](chapters/39-project-secure-transfers/TASKS.md) |
+| 40 | Interview: Spring core | ⬜ paused | [TASKS](chapters/40-interview-spring-core/TASKS.md) |
+| 41 | Interview: data and web | ⬜ paused | [TASKS](chapters/41-interview-data-and-web/TASKS.md) |
