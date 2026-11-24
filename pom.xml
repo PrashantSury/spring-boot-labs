@@ -45,5 +45,8 @@
     <module>chapters/04-dependency-injection</module>
     <module>chapters/05-configuration-and-profiles</module>
     <module>chapters/06-how-auto-configuration-works</module>
+    <module>chapters/07-the-bean-lifecycle</module>
+    <module>chapters/08-how-spring-handles-requests</module>
+    <module>chapters/09-requests-and-responses</module>
   </modules>
 </project>

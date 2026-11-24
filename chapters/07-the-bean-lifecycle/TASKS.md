@@ -1,74 +1,77 @@
 # Chapter 7 · The bean lifecycle
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter07CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter07CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter07CheckTest` 18/18 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/07-the-bean-lifecycle test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/07-the-bean-lifecycle compile exec:java "-Dexec.mainClass=ledgerly.LifecycleTour"`.
+- Fresh stub: 2/18 green (guards that must stay green).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | Creation, injection, `@PostConstruct`, ready, `@PreDestroy`, destroy | not written yet | — | checks not written yet | ⬜ |
-| 2 | `InitializingBean`, `DisposableBean` and `@Bean(initMethod, destroyMethod)` | not written yet | — | checks not written yet | ⬜ |
-| 3 | `BeanPostProcessor` and what Spring does to your beans (proxies) | not written yet | — | checks not written yet | ⬜ |
-| 4 | Prototype beans: Spring creates them but does not destroy them | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `@PostConstruct` on `load()` | `src/main/java/ledgerly/RateCache.java` | `mvn -pl chapters/07-the-bean-lifecycle test -Popen` | task 1 checks green | ⬜ |
+| 2 | `@PreDestroy` on `closeAll()` | `SessionRegistry.java` | same | task 2 checks green | ⬜ |
+| 3 | `@Bean(initMethod = "connect", destroyMethod = "disconnect")` | `GatewayConfig.java` | same | task 3 checks green | ⬜ |
+| 4 | `BeanPostProcessor` → counting proxy for `@Metered` beans | `MeteringPostProcessor.java` | same | task 4 checks green | ⬜ |
+| 5 | All six hooks on `LifecycleProbe` + its `@Bean` names | `LifecycleProbe.java`, `GatewayConfig.java` | same | task 5 checks green | ⬜ |
+| 6 | **(Interview)** the lifecycle, proxies, prototypes | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 6)
 
-- Walk through a singleton bean's lifecycle. Where are proxies created, and why does a self-call skip `@Transactional`?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- A singleton's life from creation to destruction. Why `@PostConstruct` and not the constructor?
+- What does a `BeanPostProcessor` do, and why does `this.method()` skip the proxy?
+- Does Spring destroy prototype beans?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- `@PostConstruct` runs after injection, not in the constructor
-- Calling a `@Transactional` or proxied method from inside the same class bypasses the proxy
+- Setter-injected fields are `null` in the constructor.
+- Return `bean` unchanged for beans that are not `@Metered`.
+- `line=0` after `statement()` is the right answer (self-invocation).
 
 ## ❓ Checks (letters only)
 
-1. Where is a field-injected `@Autowired` field first non-null? A. in the constructor · B. in `@PostConstruct`
-2. A prototype bean's `@PreDestroy`: A. runs at shutdown · B. is never called by Spring
-3. Proxies (for `@Transactional`, `@Async`) are created by: A. the constructor · B. a `BeanPostProcessor` after initialisation · C. the JVM
+1. Which runs first? A. `afterPropertiesSet` · B. `@PostConstruct` · C. `initMethod`
+2. A prototype bean has a `@PreDestroy` method. On `context.close()` Spring: A. calls it once per instance · B. does not call it · C. calls it once
+3. `@Transactional save()` is called from `saveAll()` in the **same** class. The transaction for `save()`: A. starts · B. does not start, the call skips the proxy
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** A connection-warmer bean must start after its dependencies are ready and release resources on shutdown.
+**Why it matters.** "Explain the bean lifecycle" and "why didn't my `@Transactional` work?" are both lifecycle questions. The second one is a real production bug class: a transaction or cache silently not applied.
 
-**The concept.** A bean is constructed, then injected, then initialised (`@PostConstruct`), then used; on shutdown `@PreDestroy` runs. `BeanPostProcessor`s run around initialisation, and that is where proxies are made.
+**The concept.** Spring builds a bean, injects it, runs the init hooks, then lets every `BeanPostProcessor` replace it (often with a proxy). On close it runs the destroy hooks in a fixed order, for singletons only.
 
-**Small example.**
+**Small example.** Sample bean: `StatementPrinter` (`@Metered`) with `statement()` calling `this.line()` twice.
 
 ```java
-@Component
-class RateCacheWarmer {
-    private final RateClient rates;
-    private Map<String, BigDecimal> cache = Map.of();
-
-    RateCacheWarmer(RateClient rates) { this.rates = rates; System.out.println("1 constructor"); }
-
-    @PostConstruct void warm() { cache = rates.loadAll(); System.out.println("2 warmed " + cache.size() + " rates"); }
-
-    @PreDestroy void close() { System.out.println("3 closing"); }
-}
+printer.statement("ACC-1");      // through the proxy
+printer.line("ACC-1", 100);      // through the proxy
 ```
 
-| Case | Result | In or out, and why |
+Real output:
+
+```
+after statement(): statement=1 line=0
+after line():      statement=1 line=1
+```
+
+| Call | Counted? | Why |
 |---|---|---|
-| App starts (`RateClient` returns 3 rates) | `1 constructor` then `2 warmed 3 rates` | init runs after the constructor and injection |
-| App stops (Ctrl+C / context close) | `3 closing` | singletons get their destroy callback |
-| Same class with `@Scope("prototype")`, then shutdown | no `3 closing` | Spring creates prototypes but does not destroy them |
-| A field-injected `@Autowired` field read inside the constructor | `null` | field injection happens after construction |
+| `printer.statement(...)` from outside | yes | the caller holds the proxy |
+| `this.line(...)` inside `statement` | no | `this` is the real object, not the proxy |
+| `printer.line(...)` from outside | yes | through the proxy again |
 
 **Gotchas**
-- `@PostConstruct` runs after injection, not in the constructor.
-- Calling a `@Transactional` (proxied) method from inside the same class bypasses the proxy.
+- A `BeanPostProcessor` is created very early; inject other beans into it lazily (`ObjectProvider`), or they miss their own post-processing.
+- `@Bean` infers a destroy method named `close` or `shutdown` automatically; `disconnect` must be named.
+- Shutdown hooks only run if the context is closed: `ctx.close()`, or the JVM shutdown hook Boot registers for you.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Fields are set after the object exists.
-2. **B.** The caller owns prototype instances.
-3. **B.** The post-processor wraps the bean and returns the proxy.
+1. **B.** `@PostConstruct`, then `afterPropertiesSet`, then `initMethod`.
+2. **B.** Spring hands prototypes out and forgets them.
+3. **B.** Self-invocation goes to `this`, not the proxy; move `save()` to another bean or call through the proxy.
 
 </details>
