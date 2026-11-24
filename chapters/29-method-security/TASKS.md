@@ -1,71 +1,68 @@
 # Chapter 29 · Method security
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter29CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter29CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~50 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter29CheckTest` 14/14 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/29-method-security test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/29-method-security spring-boot:run` (port 8094; `asha`, `meera`, `ravi`, `ops`, password = name + `-pass`).
+- Fresh stub: 4/14 green: the "allowed" cases (ops closes, ravi lists and reads) and the self-invocation example. They must stay green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `@EnableMethodSecurity`, `@PreAuthorize`, `@PostAuthorize` | not written yet | — | checks not written yet | ⬜ |
-| 2 | SpEL: `#id == authentication.principal.id` | not written yet | — | checks not written yet | ⬜ |
-| 3 | Custom permission checks as a bean | not written yet | — | checks not written yet | ⬜ |
-| 4 | Testing method security with MockMvc and `@WithMockUser` | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `@EnableMethodSecurity` + `close` ADMIN only | `src/main/java/ledgerly/SecurityConfig.java`, `AccountService.java` | `mvn -pl chapters/29-method-security test -Popen` | task 1 checks green | ⬜ |
+| 2 | `@PreAuthorize` ownership on `accountsOf` | `AccountService.java` | same | task 2 checks green | ⬜ |
+| 3 | `@PostAuthorize` on `find` | `AccountService.java` | same | task 3 checks green | ⬜ |
+| 4 | `TransferLimits.allowed` + `@PreAuthorize("@transferLimits...")` | `TransferLimits.java`, `AccountService.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** proxies, pre/post, custom checks | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- How do you make sure a customer only reads their own accounts? Why does a self-call skip `@PreAuthorize`?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- How does method security work? Pre vs Post.
+- Ownership rule / custom check; how to test.
+- Why can a check be skipped?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Method security works through a proxy, so self-invocation skips it
-- `@PreAuthorize` on a controller and on a service can both apply
+- No `@EnableMethodSecurity` → nothing enforced.
+- `this.method()` skips the proxy.
+- `@PostAuthorize` only on reads.
 
 ## ❓ Checks (letters only)
 
-1. `#accountId` in the expression refers to: A. a request header · B. the method parameter named `accountId`
-2. A self-invocation of a `@PreAuthorize` method: A. is checked · B. skips the check
-3. Ownership ("only my accounts") is best expressed with: A. a URL rule · B. method security with a bean check
+1. `@PreAuthorize` is on `close`, but `closeEmptyAccounts()` in the same class calls `this.close(3)` as a USER. Result: A. AccessDeniedException · B. account closed
+2. The owner of an account is only known after loading it. Use: A. `@PreAuthorize` · B. `@PostAuthorize`
+3. Method security denies a call made from a controller. The client gets: A. 500 · B. 403
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** A customer must see only their own accounts, which a URL rule cannot express.
+**Why it matters.** "How do you make sure a user can only see their own data?" is asked in nearly every backend interview. Insecure direct object access (changing `/accounts/1` to `/accounts/2`) is the top API vulnerability in the OWASP list.
 
-**The concept.** Method security checks rules on a method call, using the arguments, which a URL rule can't do. `@PreAuthorize` runs before the method; `@PostAuthorize` checks the returned value.
+**The concept.** Spring wraps `AccountService` in a proxy. When someone calls `service.find(1)`, the call goes to the proxy first; the proxy evaluates the SpEL expression with `authentication` (the logged-in user), the method arguments (`#id`) and, after the call, `returnObject`. False → `AccessDeniedException` → 403.
 
-**Small example.**
+**Small example.** Account 1 = asha (82,000), accounts 2 and 3 = meera. Real results:
 
-```java
-@Component("ownership")
-class Ownership {
-    boolean owns(Authentication auth, Long accountId) { return repo.ownerOf(accountId).equals(auth.getName()); }
-}
-
-@PreAuthorize("hasRole('CUSTOMER') and @ownership.owns(authentication, #accountId)")
-public AccountView get(Long accountId) { ... }
-```
-
-| Case | Result | In or out, and why |
-|---|---|---|
-| Customer `cust-7` asks for account 42 (theirs) | 200 | both parts of the rule pass |
-| `cust-7` asks for account 43 (someone else's) | 403 | `owns` returns false |
-| A teller (no `ROLE_CUSTOMER`) | 403 | the role part fails |
-| Another method in the same class calls `this.get(43)` | the check is skipped ❌ | method security works through a proxy |
-| Test with `@WithMockUser(username = "cust-7", roles = "CUSTOMER")` | runs as that customer | no token needed in the test |
+| Call | As | Rule | Result | Why |
+|---|---|---|---|---|
+| `GET /accounts/2` | meera | post: owner = me | 200 | her account |
+| `GET /accounts/1` | meera | post: owner = me | 403 | loaded, then refused |
+| `GET /customers/asha/accounts` | ravi | pre: me or TELLER | 200 | teller |
+| `POST /transfers amount=60000` | asha | `@transferLimits` | 403 | USER limit 50,000 |
+| same | ravi | `@transferLimits` | 200 | TELLER limit 5,00,000 |
+| `DELETE /accounts/2` | asha | `hasRole('ADMIN')` | 403 | not an admin |
+| `closeEmptyAccounts()` | asha | (none reached) | closes 3 | `this.close` skips the proxy |
 
 **Gotchas**
-- Method security works through a proxy, so self-invocation skips it.
-- `@PreAuthorize` on a controller and on a service can both apply.
+- Method security and URL rules both apply; use URL rules for coarse "logged in / staff area" and methods for data rules.
+- `@WithMockUser(roles = "TELLER")` gives `ROLE_TELLER` to the test's `SecurityContext`, so you can call the service directly.
+- A denied `@PostAuthorize` still ran the method (and its SQL).
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Parameters are available by name.
-2. **B.** No proxy in between.
-3. **B.** It needs the argument value.
+1. **B.** The internal call never goes through the proxy.
+2. **B.** Only after the call is `returnObject` known.
+3. **B.** `AccessDeniedException` is translated by the security filter into 403.
 
 </details>
