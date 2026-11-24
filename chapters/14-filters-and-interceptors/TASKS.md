@@ -1,74 +1,67 @@
 # Chapter 14 · Filters and interceptors
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter14CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter14CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter14CheckTest` 14/14 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/14-filters-and-interceptors test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/14-filters-and-interceptors spring-boot:run` (port 8088).
+- Fresh stub: 2/14 green (MDC already clean, `/accounts` already open; both must stay green).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | Servlet `Filter` vs `HandlerInterceptor`: where each runs | not written yet | — | checks not written yet | ⬜ |
-| 2 | `OncePerRequestFilter` and registering filter order | not written yet | — | checks not written yet | ⬜ |
-| 3 | Logging request id with MDC | not written yet | — | checks not written yet | ⬜ |
-| 4 | What an interceptor can and cannot see (it does not see 404s for unmapped paths) | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `CorrelationIdFilter`: reuse/generate, 400 on malformed, MDC + header, `finally` | `src/main/java/ledgerly/CorrelationIdFilter.java` | `mvn -pl chapters/14-filters-and-interceptors test -Popen` | task 1 checks green | ⬜ |
+| 2 | `ApiKeyInterceptor` 401 + register for `/ops/**` | `ApiKeyInterceptor.java`, `WebConfig.java` | same | task 2 checks green | ⬜ |
+| 3 | `HandlerNameInterceptor` `X-Handler` + register | `HandlerNameInterceptor.java`, `WebConfig.java` | same | task 3 checks green | ⬜ |
+| 4 | `FilterRegistrationBean` for the correlation filter, order before the access log | `WebConfig.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** filter vs interceptor, MDC, order | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- Filter vs interceptor: where does each run, and which one sees a 404 for an unmapped path?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Filter vs interceptor: where does each run? Which for a correlation id, which for a per-endpoint check?
+- How does an id get onto every log line, and why clear it?
+- Filter order; why can't `@RestControllerAdvice` catch a filter's exception?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Exceptions thrown in a filter do not reach `@ControllerAdvice`
-- Filter order decides who runs first, and security filters have their own chain
+- Don't throw from the filter; write the 400 yourself.
+- `MDC.remove` in `finally`.
+- `preHandle` → `false` needs a status, or the client sees an empty 200.
 
 ## ❓ Checks (letters only)
 
-1. Which one runs for a request to an unmapped path? A. the interceptor · B. the filter · C. neither
-2. An exception thrown in a filter is handled by `@ControllerAdvice`: A. yes · B. no
-3. Why `MDC.remove` in `finally`? A. style · B. pooled threads would carry the old id into the next request
+1. You need the name of the controller method that will run. Use: A. a servlet filter · B. a `HandlerInterceptor`
+2. `CorrelationIdFilter` has order 5, `AccessLogFilter` order 2. The access log line shows: A. `cid=r-77` · B. `cid=null`
+3. A filter throws `IllegalStateException`. Your `@RestControllerAdvice` catch-all: A. handles it · B. never sees it
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Every request needs a correlation id in the logs, and some paths need a quick check before the controller.
+**Why it matters.** Correlation ids are how real banks trace one request across services, and "filter vs interceptor" is a classic Spring interview question. Getting the order or the cleanup wrong silently corrupts the logs you need most during an incident.
 
-**The concept.** A servlet `Filter` runs around the whole `DispatcherServlet`. A `HandlerInterceptor` runs inside it, only once a handler has been chosen.
+**The concept.** A filter is a servlet-level wrapper: it gets the raw request, may stop it, calls `chain.doFilter` to go on, and runs again after the response. An interceptor is Spring MVC's hook around one controller method: `preHandle` (may stop), `postHandle`, `afterCompletion`.
 
-**Small example.**
+**Small example.** Sample requests to the finished app, and who sees them:
 
-```java
-@Component
-class CorrelationIdFilter extends OncePerRequestFilter {
-    @Override
-    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
-            throws ServletException, IOException {
-        String id = Optional.ofNullable(req.getHeader("X-Request-Id")).orElse(UUID.randomUUID().toString());
-        MDC.put("requestId", id);
-        res.setHeader("X-Request-Id", id);
-        try { chain.doFilter(req, res); } finally { MDC.remove("requestId"); }
-    }
-}
-```
+| Request | CorrelationIdFilter | ApiKeyInterceptor | HandlerNameInterceptor | Result | Why |
+|---|---|---|---|---|---|
+| `GET /whoami` | ✅ generates id | ⏭ not `/ops/**` | ✅ `LedgerController#whoami` | 200 | mapped path, both layers run |
+| `GET /ops/cache-stats` no key | ✅ | ✅ returns `false` | ❌ never reached | 401 | the first interceptor stopped it |
+| `GET /nope` | ✅ | ⏭ | runs, handler is not a `HandlerMethod` | 404, no `X-Handler` | no controller method to name |
+| `X-Correlation-Id: bad id!` | ✅ writes 400, returns | ❌ | ❌ | 400 | stopped before Spring MVC |
 
-| Case | Result | In or out, and why |
-|---|---|---|
-| `GET /accounts/42` with `X-Request-Id: abc` | every log line shows `requestId=abc`; the response echoes it | the filter wraps everything |
-| `GET /nope` (unmapped) | the filter runs; an interceptor's `preHandle` does not | no handler, so no interceptor |
-| The filter throws `IllegalStateException` | your `@ControllerAdvice` never sees it | the filter runs outside the `DispatcherServlet` |
-| Forgetting `MDC.remove` in `finally` | the next request on that thread logs the old id ❌ | threads are pooled and reused |
+**Why order matters.** Filters nest like Russian dolls. Order 1 wraps order 2, so order 1's `finally` runs last. The access log writes its line on the way out; the correlation filter must still be "open" around it, so it needs the lower number.
 
 **Gotchas**
-- Exceptions thrown in a filter do not reach `@ControllerAdvice`.
-- Filter order decides who runs first, and security filters have their own chain.
+- `OncePerRequestFilter` guards against running twice on forwards/error dispatches; a plain `Filter` does not.
+- An interceptor's `postHandle` is too late to change headers for `@ResponseBody` methods (the body is already written); use `preHandle`.
+- Spring Security (chapter 24) is itself one filter (`FilterChainProxy`) with its own inner chain.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Interceptors need a chosen handler.
-2. **B.** Advice lives inside the `DispatcherServlet`.
-3. **B.** MDC is thread-local.
+1. **B.** Only the interceptor gets the chosen `HandlerMethod`.
+2. **B.** The correlation filter is inside the access log and removes the id before the log line is written.
+3. **B.** Filters run outside the `DispatcherServlet`, where the advice lives.
 
 </details>

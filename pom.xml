@@ -51,5 +51,8 @@
     <module>chapters/10-layers-and-dtos</module>
     <module>chapters/11-updating-and-deleting</module>
     <module>chapters/12-validating-input</module>
+    <module>chapters/13-handling-errors</module>
+    <module>chapters/14-filters-and-interceptors</module>
+    <module>chapters/15-plain-sql-with-jdbcclient</module>
   </modules>
 </project>

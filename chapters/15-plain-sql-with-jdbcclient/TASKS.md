@@ -1,73 +1,80 @@
 # Chapter 15 · Plain SQL with JdbcClient
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter15CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter15CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter15CheckTest` 15/15 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/15-plain-sql-with-jdbcclient test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/15-plain-sql-with-jdbcclient spring-boot:run` (no web server; H2 in memory, no Docker).
+- Fresh stub: 3/15 green (`ACC-9` empty, `deposit` to `ACC-9` false, the "Asha" search; all must stay green).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `DataSource`, H2 and `schema.sql` / `data.sql` | not written yet | — | checks not written yet | ⬜ |
-| 2 | `JdbcClient`: query to records, named parameters | not written yet | — | checks not written yet | ⬜ |
-| 3 | Insert with generated keys, update counts | not written yet | — | checks not written yet | ⬜ |
-| 4 | Testing with an in-memory database | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `findAll` ordered by number | `src/main/java/ledgerly/AccountDao.java` | `mvn -pl chapters/15-plain-sql-with-jdbcclient test -Popen` | task 1 checks green | ⬜ |
+| 2 | `findByNumber` with `:number` → `Optional` | `AccountDao.java` | same | task 2 checks green | ⬜ |
+| 3 | `searchByOwner` with a parameter (no injection) | `AccountDao.java` | same | task 3 checks green | ⬜ |
+| 4 | `insert` returns the generated id | `AccountDao.java` | same | task 4 checks green | ⬜ |
+| 5 | `deposit` / `withdraw` with the update count | `AccountDao.java` | same | task 5 checks green | ⬜ |
+| 6 | **(Interview)** JdbcClient, injection, update count | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 6)
 
-- Why must a debit check the update count, and how do named parameters stop SQL injection?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Select, insert, update with JdbcClient; how do you get the generated id?
+- Why is concatenation dangerous; what does a parameter change?
+- Why check the update count; how does a withdrawal never overdraw?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Concatenating strings into SQL is an injection bug; use parameters
-- Forgetting to check the update count hides a failed update
+- `%` goes in the parameter value, not in the SQL.
+- `.single()` throws on 0 rows.
+- No select-then-update for a withdrawal.
 
 ## ❓ Checks (letters only)
 
-1. An `UPDATE` matches no rows. `JdbcClient`: A. throws · B. returns 0
-2. Safe way to filter by user input: A. concatenate it into the SQL · B. a named parameter like `:no`
-3. `balance > 50000` with balances 52,000 / 50,000 / 18,500 returns: A. 1 row · B. 2 rows · C. 3 rows
+1. `update account set balance = balance + 500 where number = 'ACC-9'` (no such row) returns: A. 1 · B. 0 · C. an exception
+2. `where owner like '%:pattern%'` with `.param("pattern", "Asha")` finds: A. ACC-1 and ACC-3 · B. nothing
+3. Which is safe? A. `"where number = '" + n + "'"` · B. `"where number = :n"` + `.param("n", n)`
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Before JPA hides the SQL, you should see the SQL: select, insert and update accounts yourself.
+**Why it matters.** SQL injection is still in the OWASP Top 10, and banks get pen-tested every year. Interviewers ask "how do you prevent SQL injection?" and "what does `executeUpdate` return?" because the answers show whether you have written SQL against a real database.
 
-**The concept.** `JdbcClient` runs SQL you write, binds named parameters, and maps rows to records. You see exactly which SQL hits the database.
+**The concept.** With a named parameter, the database receives the SQL with a placeholder and the value separately, so the value can never change the statement. `update()` tells you how many rows the statement changed, which is your only proof that it did something.
 
-**Small example.**
+**Small example.** Sample data (`data.sql`):
 
-```java
-record AccountRow(String number, BigDecimal balance) {}
+| id | number | owner | balance |
+|---|---|---|---|
+| 1 | ACC-1 | Asha Rao | 52000 |
+| 2 | ACC-2 | Vikram Shah | 1000 |
+| 3 | ACC-3 | Asha Verma | 7500 |
 
-List<AccountRow> rich = jdbc.sql("SELECT number, balance FROM account WHERE balance > :min ORDER BY number")
-        .param("min", 50_000)
-        .query(AccountRow.class)
-        .list();
+Real results of `searchByOwner`:
 
-int changed = jdbc.sql("UPDATE account SET balance = balance - :amt WHERE number = :no")
-        .param("amt", 500).param("no", "0000999999")
-        .update();
-```
+| Input | Concatenated SQL (stub) | With `:pattern` (finished) | Why |
+|---|---|---|---|
+| `Asha` | ACC-1, ACC-3 | ACC-1, ACC-3 | both contain "Asha"; ACC-2 is out |
+| `' OR 1=1 --` | ACC-1, ACC-2, ACC-3 ❌ | none | concatenated: `like '%' OR 1=1 --%'` is always true and `--` comments out the rest; parameter: no owner contains that text |
+| `O'Brien` | SQL syntax error ❌ | none | the quote closes the string literal early |
 
-| Case | Result | In or out, and why |
-|---|---|---|
-| Accounts 52,000 / 18,500 / 75,000, `min` = 50,000 | 2 rows: 52,000 and 75,000 | 18,500 is not more than 50,000 |
-| `UPDATE` for an account that exists | `changed` = 1 | one row updated |
-| `UPDATE` for `0000999999` (no such account) | `changed` = 0, no exception | you must check the count yourself |
-| `"... WHERE number = '" + input + "'"` with `input = "x' OR '1'='1"` | every row matches ❌ | string concatenation is SQL injection |
+And `withdraw` in one statement (real results, `ACC-2` = 1000):
+
+| Call | Rows changed | Returns | Balance after | Why |
+|---|---|---|---|---|
+| `withdraw("ACC-2", 2000)` | 0 | `false` | 1000 | `balance >= 2000` fails, so the row is not matched |
+| `withdraw("ACC-2", 600)` | 1 | `true` | 400 | check and change happen atomically |
 
 **Gotchas**
-- Concatenating strings into SQL is an injection bug; use parameters.
-- Forgetting to check the update count hides a failed update.
+- Boot runs `schema.sql`/`data.sql` automatically only for embedded databases like H2 (`spring.sql.init.mode=always` for others).
+- Record mapping needs column names that match component names (use `as` aliases otherwise).
+- `JdbcClient` throws Spring's `DataAccessException` family (`DuplicateKeyException`, ...), not raw `SQLException`.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Zero rows is not an error to JDBC.
-2. **B.** The driver sends the value separately from the SQL.
-3. **A.** 50,000 is not more than 50,000.
+1. **B.** 0 rows matched, 0 rows changed. No exception, which is why you must check.
+2. **B.** Inside quotes `:pattern` is literal text, not a parameter.
+3. **B.** The value never becomes part of the SQL.
 
 </details>
