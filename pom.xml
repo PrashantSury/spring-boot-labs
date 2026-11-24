@@ -22,11 +22,28 @@
 
   <properties>
     <java.version>21</java.version>
+    <!-- Open chapters (not solved yet) compile in a root build but skip their checks,
+         so `mvn test` from the root stays green. Run an open chapter's checks with -Popen:
+         mvn -pl chapters/04-dependency-injection test -Popen
+         When a chapter is done, delete the skipTests line from its pom.xml. -->
+    <labs.skipOpen>true</labs.skipOpen>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>open</id>
+      <properties>
+        <labs.skipOpen>false</labs.skipOpen>
+      </properties>
+    </profile>
+  </profiles>
 
   <modules>
     <module>chapters/01-maven-and-the-pom</module>
     <module>chapters/02-first-spring-boot-app</module>
     <module>chapters/03-beans-and-the-application-context</module>
+    <module>chapters/04-dependency-injection</module>
+    <module>chapters/05-configuration-and-profiles</module>
+    <module>chapters/06-how-auto-configuration-works</module>
   </modules>
 </project>

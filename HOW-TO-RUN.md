@@ -43,6 +43,14 @@ mvn -pl chapters/02-first-spring-boot-app test
 mvn -pl chapters/03-beans-and-the-application-context test
 ```
 
+**Chapters 4 and later are "open" until you finish them.** A root build (`mvn test`) compiles them but skips their checks, so the root stays green. Add `-Popen` to run an open chapter's checks:
+
+```
+mvn -pl chapters/04-dependency-injection test -Popen
+```
+
+When a chapter is done, delete the `<skipTests>${labs.skipOpen}</skipTests>` line from its `pom.xml` so the root build checks it too. IntelliJ's green arrow always runs the checks.
+
 The first run downloads libraries and takes a minute. Later runs take a few seconds.
 
 **In IntelliJ:** open `src/test/java/ledgerly/ChapterNNCheckTest.java` and click the green arrow next to the class name, then **Run**. The Run window shows each check as a line. Click a red line to read its message.

@@ -1,73 +1,74 @@
 # Chapter 6 · How auto-configuration works
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter06CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter06CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter06CheckTest` 20/20 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/06-how-auto-configuration-works test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/06-how-auto-configuration-works compile exec:java "-Dexec.mainClass=ledgerly.app.AutoConfigTour"`.
+- Fresh stub: 6/20 green (guards and defaults that must stay green).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `@Conditional` annotations: `OnClass`, `OnMissingBean`, `OnProperty` | not written yet | — | checks not written yet | ⬜ |
-| 2 | Reading the `--debug` conditions report | not written yet | — | checks not written yet | ⬜ |
-| 3 | Writing your own tiny auto-configuration and starter-style bean | not written yet | — | checks not written yet | ⬜ |
-| 4 | How to back off a default by defining your own bean | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `@AutoConfiguration` + one line in the imports file | `src/main/java/ledgerly/autoconfigure/LedgerlyAuditAutoConfiguration.java`, `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` | `mvn -pl chapters/06-how-auto-configuration-works test -Popen` | task 1 checks green | ⬜ |
+| 2 | `@ConditionalOnMissingBean(AuditSink.class)` on `auditSink()` | `LedgerlyAuditAutoConfiguration.java` | same | task 2 checks green | ⬜ |
+| 3 | `@ConditionalOnProperty` `ledgerly.audit.enabled`, on if missing | `LedgerlyAuditAutoConfiguration.java` | same | task 3 checks green | ⬜ |
+| 4 | `@ConditionalOnClass(name = "ledgerly.siem.SiemClient")` on `siemForwarder()` | `LedgerlyAuditAutoConfiguration.java` | same | task 4 checks green | ⬜ |
+| 5 | `outcome(ctx, source)` from `ConditionEvaluationReport` | `src/main/java/ledgerly/app/ConditionsReader.java` | same | task 5 checks green | ⬜ |
+| 6 | **(Interview)** how Boot creates a `DataSource` | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 6)
 
-- How does Spring Boot know to create a `DataSource`? Answer from the mechanism: the imports file, the conditions, and backing off.
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Where does Boot find auto-configuration classes? (not component scan)
+- Which conditions decide the `DataSource`? Name two.
+- Your own `DataSource` bean: what happens, and how do you check why a default did or didn't apply?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Your own bean of the same type makes the default back off, which can surprise you
-- Auto-configuration classes are not found by component scan
+- No `@Import`/`@ComponentScan` on the app: the imports file only.
+- `@ConditionalOnMissingBean` on the **method**, not the class.
+- `matchIfMissing = true`.
+- `@ConditionalOnClass(name = "...")` as a String.
 
 ## ❓ Checks (letters only)
 
-1. You define your own `DataSource` bean. Boot's default `DataSource`: A. is created too, and startup fails · B. backs off · C. replaces yours
-2. Fastest way to see why an auto-configuration did not apply: A. read the Boot source · B. run with `--debug` and read the conditions report
-3. How are auto-configuration classes found? A. component scan · B. the `AutoConfiguration.imports` file in each jar
+1. You add your own `AuditSink` bean. The starter's `auditSink()`: A. is created too, and startup fails with "found 2" · B. backs off · C. replaces yours
+2. Auto-configuration classes are found by: A. component scanning from the main class · B. the `AutoConfiguration.imports` files · C. `application.properties`
+3. The config class "did not match". Its `@Bean` methods are: A. matched · B. did not match · C. not evaluated
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Interviewers ask "how does Spring Boot know to create a DataSource?" and you should answer from the mechanism, not from memory of a slide.
+**Why it matters.** "How does Spring Boot auto-configure a DataSource?" separates people who used Boot from people who understand it. The same mechanism explains every surprise like "why did my Jackson settings stop working?" (you defined an `ObjectMapper` and the default backed off).
 
-**The concept.** Spring Boot ships auto-configuration classes listed in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`. Each one applies only if its `@Conditional...` checks pass, and most of its beans back off when you define your own.
+**The concept.** `@EnableAutoConfiguration` loads every class listed in the `AutoConfiguration.imports` files. Each class and `@Bean` method has conditions; a bean is created only when all of them match. User beans are registered first, so `@ConditionalOnMissingBean` sees them and backs off.
 
-**Small example.**
+**Small example.** Sample setups for this chapter's starter:
 
-```java
-@AutoConfiguration
-@ConditionalOnClass(name = "com.ledgerly.sms.SmsClient")
-public class SmsAutoConfiguration {
+| Setup | `AuditSink` | `SiemForwarder` | Why |
+|---|---|---|---|
+| nothing set | `ConsoleAuditSink` | yes | key missing → on; SIEM class present |
+| `ledgerly.audit.enabled=false` | none | none | the class did not match, nothing inside runs |
+| app defines `bankAuditSink` | `bankAuditSink` only | yes | only `auditSink()` backs off |
+| `ledgerly.siem` jar missing | `ConsoleAuditSink` | none | `@ConditionalOnClass` failed |
 
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ledgerly.sms", name = "enabled", havingValue = "true")
-    SmsClient smsClient() { return new SmsClient("default-gateway"); }
-}
+Real output, switched off:
+
+```
+config class         did not match
+auditSink method     not evaluated
 ```
 
-| Case | Result | In or out, and why |
-|---|---|---|
-| Class on the classpath, `ledgerly.sms.enabled=true`, no bean of yours | the default `SmsClient` | all three conditions pass |
-| You declare your own `@Bean SmsClient` | your bean only | `@ConditionalOnMissingBean` backs off |
-| `ledgerly.sms.enabled` not set | no `SmsClient` bean | `@ConditionalOnProperty` fails |
-| `SmsClient` class not on the classpath | the whole class is skipped | `@ConditionalOnClass` fails first |
-| Run with `--debug` | `CONDITIONS EVALUATION REPORT` with `Positive matches` and `Negative matches` | the report says which condition passed or failed |
-
 **Gotchas**
-- Your own bean of the same type makes the default back off, sometimes with settings you didn't expect.
-- Auto-configuration classes are not found by component scan; they must be listed in the imports file.
+- Backing off is all or nothing: your own `DataSource` means none of Boot's pool settings apply.
+- `@ConditionalOnMissingBean` in your **own** `@Configuration` is unreliable: ordering between user configs is not guaranteed. It is meant for auto-configurations.
+- `--debug` prints "Positive matches" and "Negative matches". Search the report for the class name.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** It is guarded by a missing-bean condition.
-2. **B.** Negative matches name the failed condition.
-3. **B.** Scan only covers your packages.
+1. **B.** `@ConditionalOnMissingBean` sees your bean first and the default is skipped.
+2. **B.** Boot reads the imports files; scanning does not find them.
+3. **C.** When the class fails, Boot never looks at its methods.
 
 </details>

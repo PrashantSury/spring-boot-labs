@@ -1,71 +1,82 @@
 # Chapter 5 · Configuration and profiles
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter05CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter05CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~70 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter05CheckTest` 25/25 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/05-configuration-and-profiles test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/05-configuration-and-profiles compile exec:java "-Dexec.mainClass=ledgerly.ConfigTour"`.
+- Fresh stub: 0/25 green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `application.properties` and `application.yml`, and the order Spring reads them | not written yet | — | checks not written yet | ⬜ |
-| 2 | `@Value` vs `@ConfigurationProperties` with a validated properties record | not written yet | — | checks not written yet | ⬜ |
-| 3 | Spring profiles: `dev`, `uat`, `prod`, and `@Profile` on beans | not written yet | — | checks not written yet | ⬜ |
-| 4 | Property precedence: environment variables, command line, files | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `@Value`: `ledgerly.bank-name` (required), `ledgerly.support-phone` (default `1800-123-4567`) | `src/main/java/ledgerly/BranchInfo.java`, `src/main/resources/application.properties` | `mvn -pl chapters/05-configuration-and-profiles test -Popen` | task 1 checks green | ⬜ |
+| 2 | Validated `@ConfigurationProperties("ledgerly.transfer")` + 3 keys + `@ConfigurationPropertiesScan` | `TransferProperties.java`, `application.properties`, `LedgerlyApplication.java` | same | task 2 checks green | ⬜ |
+| 3 | `prod`: postgres URL + limit 100000 · `dev`: bank name `(DEV)` | `application-prod.properties`, `application-dev.properties` | same | task 3 checks green | ⬜ |
+| 4 | `@Profile("prod")` real gateway, `@Profile("!prod")` fake | `RealSmsGateway.java`, `FakeSmsGateway.java` | same | task 4 checks green | ⬜ |
+| 5 | `whereFrom(key)`: the winning property source | `EnvironmentReport.java` | same | task 5 checks green | ⬜ |
+| 6 | **(Interview)** `@Value` vs `@ConfigurationProperties`, one jar for prod | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 6)
 
-- When do you use `@Value` and when `@ConfigurationProperties`? How would the same jar use a different database in prod without a code change?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- When `@Value`, when `@ConfigurationProperties`? What does validation add?
+- How does the same jar use another database in prod with no code change? (profiles + precedence)
+- What does an active profile add, and what does it **not** do?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- A typo in a property name is silently ignored with `@Value` defaults
-- An active profile replaces nothing by itself; it only adds files and beans
+- A `@Value` default hides a typo. Required keys get no default.
+- Profile files add on top of the base. Change only what differs.
+- `@Profile("dev")` on the fake leaves `uat` with no gateway. Use `"!prod"`.
+- No `@ConfigurationPropertiesScan` → the record is not a bean.
 
 ## ❓ Checks (letters only)
 
-1. `@Value("${ledgerly.fee.minmum:10}")` has a typo in the key. What happens? A. startup fails · B. the value is silently 10 · C. it is `null`
-2. `application-prod.yml` says 25, env `LEDGERLY_FEES_MINIMUM` says 50, profile `prod` is active. Result: A. 25 · B. 50 · C. startup fails
-3. Activating profile `prod`: A. replaces `application.yml` · B. adds `application-prod.yml` and `@Profile("prod")` beans on top
+1. `application.properties` has `ledgerly.transfer.daily-limit=200000`, `application-prod.properties` has `100000`, and you run with `--spring.profiles.active=prod --ledgerly.transfer.daily-limit=150000`. The limit is: A. 200000 · B. 100000 · C. 150000
+2. With `prod` active, a key only in `application.properties` is: A. ignored · B. still used · C. an error
+3. `@Value("${ledgerly.bank-nmae:Ledgerly}")` (typo) at startup: A. fails · B. starts with `Ledgerly` and nobody notices · C. starts with `null`
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** The same Ledgerly jar must run with a test database on a laptop and the real one in production, with no code change.
+**Why it matters.** "How do you run the same build in dev, UAT and prod?" is a standard interview question, and a wrong answer ("we change the file and rebuild") is a red flag. Banks also audit where settings come from.
 
-**The concept.** Settings live outside the code; Spring reads them from files, environment variables and the command line, and the more specific source wins. A profile adds `application-<profile>.yml` and `@Profile` beans on top of the defaults.
+**The concept.** Spring collects every property source into one ordered list (the Environment). A key's value comes from the first source that has it. A profile only adds sources (`application-prod.properties`) and beans (`@Profile("prod")`).
 
-**Small example.**
+**Small example.** Sample data:
 
-```java
-@Validated
-@ConfigurationProperties(prefix = "ledgerly.fees")
-record FeeProps(@Min(1) long minimum) {}
-// enabled with @ConfigurationPropertiesScan on the application class
-
-// application.yml        ->  ledgerly.fees.minimum: 10
-// application-prod.yml   ->  ledgerly.fees.minimum: 25
+```properties
+# application.properties                    # application-prod.properties
+ledgerly.database.url=jdbc:h2:mem:ledgerly  ledgerly.database.url=jdbc:postgresql://db.ledgerly.internal:5432/ledgerly
+ledgerly.transfer.daily-limit=200000        ledgerly.transfer.daily-limit=100000
+ledgerly.transfer.fee-percent=1.0
 ```
 
-| Case | Result | In or out, and why |
+Run with `prod` and `--ledgerly.transfer.daily-limit=150000`. Real output:
+
+```
+database url     jdbc:postgresql://db.ledgerly.internal:5432/ledgerly
+transfer rules   TransferProperties[dailyLimit=150000, feePercent=1.0, otpValidity=PT5M]
+daily-limit from commandLineArgs
+```
+
+| Key | Value used | Why |
 |---|---|---|
-| No profile | `minimum` = 10 | only `application.yml` is read |
-| `--spring.profiles.active=prod` | `minimum` = 25 | the profile file is added on top and overrides |
-| `prod` + env `LEDGERLY_FEES_MINIMUM=50` | `minimum` = 50 | environment variables beat files (relaxed binding maps the name) |
-| `prod` + env 50 + `--ledgerly.fees.minimum=70` | `minimum` = 70 | command-line arguments beat environment variables |
-| `ledgerly.fees.minimum: 0` in the file | startup fails with a binding validation error | `@Validated` + `@Min(1)` reject it early |
+| `database.url` | postgres | the prod file is above the base file |
+| `daily-limit` | 150000 | the command line is above both files |
+| `fee-percent` | 1.0 | only the base file has it, so it is inherited |
+| `support-phone` | 1800-123-4567 | no source has it; the `@Value` default is used |
 
 **Gotchas**
-- `@Value("${ledgerly.fee.minmum:10}")` with a typo silently uses the default 10. `@ConfigurationProperties` with validation fails loudly instead.
-- Activating a profile removes nothing: `application.yml` still loads first.
+- Environment variables use relaxed names: `LEDGERLY_TRANSFER_DAILYLIMIT` sets `ledgerly.transfer.daily-limit`.
+- If both `application.properties` and `application.yml` exist in the same folder, `.properties` wins for keys in both.
+- Never put secrets (DB passwords) in committed files; pass them as environment variables.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** The default hides the typo; that is why typed, validated properties are safer.
-2. **B.** Environment variables outrank config files.
-3. **B.** Profiles only add; defaults still load.
+1. **C.** The command line has the highest priority.
+2. **B.** A profile adds a file on top; the base keys stay.
+3. **B.** The default hides the typo. That is why required keys should have no default.
 
 </details>

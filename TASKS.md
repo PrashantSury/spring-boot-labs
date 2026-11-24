@@ -69,6 +69,8 @@ Stuck 15 min → ask Lumi.
 
 ## 📚 All chapters (start each chapter with its `TASKS.md`, then the README)
 
+- Chapters 4+ are open: run their checks with `-Popen`, e.g. `mvn -pl chapters/04-dependency-injection test -Popen`. A plain root `mvn test` skips them and stays green.
+
 | Chapter | Title | Status | Link |
 |---|---|---|---|
 | 1 | Maven and the pom.xml | ✅ 19/19 · 7/10 | [TASKS](chapters/01-maven-and-the-pom/TASKS.md) |
