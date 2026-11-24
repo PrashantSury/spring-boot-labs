@@ -1,68 +1,66 @@
 # Chapter 18 · Pagination and sorting
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter18CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter18CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter18CheckTest` 13/13 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/18-pagination-and-sorting test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/18-pagination-and-sorting spring-boot:run` (port 8089; H2 in memory, no Docker).
+- Fresh stub: 0/13 green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `Pageable`, `Page`, `Slice` | not written yet | — | checks not written yet | ⬜ |
-| 2 | `PageRequest.of` and `Sort` | not written yet | — | checks not written yet | ⬜ |
-| 3 | Exposing `page`, `size` and `sort` in a controller | not written yet | — | checks not written yet | ⬜ |
-| 4 | Counting queries and when a `Slice` is cheaper | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `Page<Txn> findByAccountNumber(String, Pageable)` | `src/main/java/ledgerly/TxnRepository.java` | `mvn -pl chapters/18-pagination-and-sorting test -Popen` | task 1 checks green | ⬜ |
+| 2 | Statement endpoint: defaults, size cap 100, `PageResponse` | `StatementController.java` | same | task 2 checks green | ⬜ |
+| 3 | `sortFrom`: parse, whitelist → 400, `id` tie-breaker | `StatementController.java` | same | task 3 checks green | ⬜ |
+| 4 | `Slice` query + `/feed` endpoint | `TxnRepository.java`, `StatementController.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** Page vs Slice, sort whitelist | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- `Page` vs `Slice`: what extra query does `Page` run, and when is it not worth it?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Paging and sorting in Spring Data: `Pageable`, `Page`?
+- When a `Slice`?
+- Why whitelist the sort; what else do you cap?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Sorting by a user-supplied property name must be checked against a whitelist
-- Page numbers start at 0
+- Pages start at 0.
+- Whitelist sort properties; cap size.
+- Add `id` as a tie-breaker.
 
 ## ❓ Checks (letters only)
 
-1. The first page is: A. page=0 · B. page=1
-2. Which avoids the count query? A. `Page` · B. `Slice`
-3. A client-supplied sort property should be: A. passed straight through · B. checked against allowed fields
+1. 45 rows, size 20. `?page=2` returns: A. rows 21–40 · B. rows 41–45
+2. Which runs a `count` query? A. `Page` · B. `Slice` · C. both
+3. `?sort=password,asc` on an entity without that field, no whitelist: A. 400 · B. 500 with a "No property" message
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** A customer with 20,000 transactions cannot be returned in one response.
+**Why it matters.** Every list endpoint in a real bank is paged, and interviewers ask "Page vs Slice?", "how do you stop a client from requesting a million rows?" and "why do rows repeat across pages?" to see if you have run a list endpoint in production.
 
-**The concept.** Ask for one page of rows instead of all of them. `Pageable` carries page, size and sort; `Page` adds the total count, and `Slice` skips it.
+**The concept.** A `Pageable` says "page n, size s, sorted by x". Spring Data turns it into `ORDER BY x OFFSET n*s FETCH FIRST s ROWS`. A `Page` also counts all matching rows; a `Slice` fetches `s + 1` rows and only reports whether there was an extra one.
 
-**Small example.**
+**Small example.** Sample data: ACC-1 has 45 transactions, UPI #1 (2 Oct) to UPI #45 (15 Nov); ACC-2 has 3. Real results:
 
-```java
-@GetMapping("/accounts/{id}/transactions")
-Page<TxnView> list(@PathVariable Long id, @RequestParam(defaultValue = "0") int page) {
-    Pageable p = PageRequest.of(page, 20, Sort.by("postedAt").descending());
-    return repo.findByAccountId(id, p).map(TxnView::of);
-}
-```
-
-| Case | Result | In or out, and why |
+| Request | Rows returned | In or out, and why |
 |---|---|---|
-| 20,000 transactions, `page=0` | 20 newest rows, `totalElements` 20000, `totalPages` 1000 | pages start at 0 |
-| `page=1` | rows 21-40 | the second page |
-| Return `Slice` instead of `Page` | no `COUNT(*)` query; only `hasNext` | cheaper for "load more" |
-| `sort` taken straight from the client, e.g. `sort=pin` | sorts by a hidden column, or 500 for an unknown one ❌ | check it against a whitelist |
+| `?page=0&size=20` | UPI #45 … #26 | newest first (default `bookedAt,desc`); #25 and older are on later pages |
+| `?page=2&size=20` | UPI #5 … #1 (5 rows) | 45 − 40 = 5 left on the last page |
+| `?size=2&sort=amount,desc` | UPI #36 (5032), #35 (4895) | the biggest amounts; date ignored |
+| any ACC-1 page | never ACC-2's NEFT rows | the `where account_number = ?` comes first, then sort and page |
+| `?sort=description` | 400 | not on the whitelist |
 
 **Gotchas**
-- Sorting by a user-supplied property name must be checked against a whitelist.
-- Page numbers start at 0.
+- Spring MVC can also inject a `Pageable` parameter directly (`?page=&size=&sort=`), but then the whitelist and cap still have to be added (`spring.data.web.pageable.max-page-size`).
+- Deep offsets get slow (`OFFSET 1000000` reads and throws away a million rows); very large feeds use keyset pagination ("after id 12345").
+- `Page.map(TxnView::of)` converts the content but keeps the totals.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **A.** Spring Data pages are zero-based.
-2. **B.** A `Slice` only knows if there is a next one.
-3. **B.** Otherwise clients can sort by fields you never meant to expose.
+1. **B.** Page 0 = 1–20, page 1 = 21–40, page 2 = 41–45.
+2. **A.** Only `Page` needs the total.
+3. **B.** Spring Data fails on the unknown property and the client sees a 500.
 
 </details>

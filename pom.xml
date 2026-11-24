@@ -54,5 +54,8 @@
     <module>chapters/13-handling-errors</module>
     <module>chapters/14-filters-and-interceptors</module>
     <module>chapters/15-plain-sql-with-jdbcclient</module>
+    <module>chapters/16-jpa-entities</module>
+    <module>chapters/17-repositories-and-query-methods</module>
+    <module>chapters/18-pagination-and-sorting</module>
   </modules>
 </project>
