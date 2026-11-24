@@ -57,5 +57,8 @@
     <module>chapters/16-jpa-entities</module>
     <module>chapters/17-repositories-and-query-methods</module>
     <module>chapters/18-pagination-and-sorting</module>
+    <module>chapters/19-projections-and-aggregations</module>
+    <module>chapters/20-entity-relationships</module>
+    <module>chapters/21-cascading-and-transactions</module>
   </modules>
 </project>
