@@ -1,6 +1,6 @@
 package ledgerly;
 
-import org.springframework.beans.factory.annotation.Autowired; //@@stub
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** Transfers for premium customers: they must get the zeroFees policy. */
