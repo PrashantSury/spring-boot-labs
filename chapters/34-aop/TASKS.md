@@ -1,72 +1,67 @@
 # Chapter 34 · AOP
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter34CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter34CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~45 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter34CheckTest` 14/14 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/34-aop test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/34-aop spring-boot:run` (prints the proxy class, audit trail and timings).
+- Fresh stub: 1/14 green (the `final` method example; must stay green).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | Aspects, pointcuts and advice: `@Around`, `@Before`, `@AfterReturning` | not written yet | — | checks not written yet | ⬜ |
-| 2 | Writing a timing aspect | not written yet | — | checks not written yet | ⬜ |
-| 3 | How Spring AOP uses proxies (JDK vs CGLIB) | not written yet | — | checks not written yet | ⬜ |
-| 4 | Why `@Transactional`, `@Cacheable` and `@Async` are all AOP | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `@Around` timing of every `TransferService` method | `src/main/java/ledgerly/TimingAspect.java` | `mvn -pl chapters/34-aop test -Popen` | task 1 checks green | ⬜ |
+| 2 | `@AfterReturning` audit line for `@Audited` | `AuditAspect.java` | same | task 2 checks green | ⬜ |
+| 3 | `@AfterThrowing` audit line, exception not swallowed | `AuditAspect.java` | same | task 3 checks green | ⬜ |
+| 4 | fix self-invocation in `payroll` | `TransferService.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** aspects, proxies, traps | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- How does Spring AOP work underneath (JDK vs CGLIB proxies), and why do `@Transactional`, `@Cacheable` and `@Async` share the same limits?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Aspect, pointcut, advice; when `@Around`?
+- How Spring applies it; JDK vs CGLIB.
+- Self-invocation and `final`; who else shares it?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Self-invocation skips the aspect
-- Final classes and private methods cannot be proxied
+- `@Aspect` needs `@Component` too.
+- `@Around` must return `proceed()` and let exceptions out.
+- `this.transfer()` skips the proxy.
 
 ## ❓ Checks (letters only)
 
-1. `@Around` advice must call: A. `pjp.proceed()`, or the method never runs · B. nothing
-2. A bean with no interface is proxied with: A. a JDK dynamic proxy · B. CGLIB (a subclass)
-3. Which can't be advised by Spring AOP? A. public service methods · B. private methods
+1. Which advice can change the return value or skip the method? A. `@AfterReturning` · B. `@Around`
+2. `payroll` calls `this.transfer(...)` and `transfer` is `@Audited`. Audit lines written: A. one per transfer · B. none
+3. Spring Boot advises a class with no interface using: A. a CGLIB subclass · B. a JDK dynamic proxy
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Audit logging for every service method should not mean editing every service method.
+**Why it matters.** "How does `@Transactional` work?" is one of the most common Spring interview questions, and the honest answer is "AOP through a proxy". Knowing that explains half the "my annotation does nothing" bugs.
 
-**The concept.** An aspect is code that runs around chosen methods (the pointcut) without editing them. Spring applies it by wrapping your bean in a proxy.
+**The concept.** The bean you inject is not your object; it is a receptionist (the proxy) standing in front of it. Every call from outside goes to the receptionist first. The receptionist checks its list (pointcuts), runs the extra steps (advice: start a timer, write an audit line) and then passes the call on. A call your object makes to itself never passes the receptionist, so nothing extra happens.
 
-**Small example.**
+**Small example.** Real results from the tests (ACC-1 = 1000, ACC-2 = 500, ACC-3 = 0):
 
-```java
-@Aspect @Component
-class TimingAspect {
-    @Around("execution(public * com.ledgerly..service.*.*(..))")
-    Object time(ProceedingJoinPoint pjp) throws Throwable {
-        long start = System.nanoTime();
-        try { return pjp.proceed(); }
-        finally { System.out.println(pjp.getSignature().toShortString() + " took " + (System.nanoTime() - start) / 1_000_000 + " ms"); }
-    }
-}
-```
-
-| Case | Result | In or out, and why |
-|---|---|---|
-| Controller calls `transferService.transfer(...)` | `TransferService.transfer(..) took 12 ms` | the call goes through the proxy |
-| `transfer` calls `this.validate(...)` (also public, same class) | no line for `validate` ❌ | self-invocation skips the aspect |
-| A `private` or `final` method | never advised | a proxy can't override it |
-| `@Transactional`, `@Cacheable`, `@Async` | work the same way | they are all proxy-based AOP |
+| Call | Audit trail | `transfer` timed | Why |
+|---|---|---|---|
+| `transfer(ACC-1, ACC-2, 100)` | `OK transfer [ACC-1, ACC-2, 100] -> TX-1` | 1 | through the proxy |
+| `transfer(ACC-1, ACC-2, 5000)` | `FAILED transfer [ACC-1, ACC-2, 5000]: insufficient funds in ACC-1` | 1 | `@AfterThrowing`; the caller still gets the exception |
+| `balance(ACC-1)` | nothing | 0 (`balance` = 1) | not `@Audited`, but every method is timed |
+| `payroll(ACC-1, {ACC-2: 10, ACC-3: 20})` with `this.transfer` | nothing | 0 | self-invocation |
+| same, through `self.getObject()` | 2 OK lines, TX-1, TX-2 | 2 | through the proxy |
+| `feeFor(100)` | nothing | 0 | `final`: no override, no advice |
 
 **Gotchas**
-- Self-invocation skips the aspect.
-- Final classes and private methods cannot be proxied.
+- Bind annotation values by parameter name: `@annotation(audited)` + a parameter `Audited audited`.
+- Order of several aspects: `@Order` on the aspect class; lower runs first (outermost).
+- `ObjectProvider<Self>` or `@Lazy` self-injection fixes self-invocation; often moving the method to another bean is cleaner.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **A.** You decide whether and when the real method runs.
-2. **B.** JDK proxies need an interface; Spring Boot uses CGLIB by default.
-3. **B.** A proxy only intercepts calls it can override.
+1. **B.** Only `@Around` controls `proceed()`.
+2. **B.** `this.` never reaches the proxy.
+3. **A.** Boot sets `proxyTargetClass=true`; JDK proxies need an interface.
 
 </details>

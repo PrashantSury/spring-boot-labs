@@ -72,5 +72,8 @@
     <module>chapters/31-security-errors</module>
     <module>chapters/32-caching</module>
     <module>chapters/33-transactions-and-locking</module>
+    <module>chapters/34-aop</module>
+    <module>chapters/35-calling-other-services-with-restclient</module>
+    <module>chapters/36-actuator</module>
   </modules>
 </project>

@@ -1,72 +1,65 @@
 # Chapter 36 · Actuator
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter36CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter36CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~45 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter36CheckTest` 12/12 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/36-actuator test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/36-actuator spring-boot:run` (port 8098; `POST /demo/gateway?up=false` takes the gateway down).
+- Fresh stub: 2/12 green: the example and "liveness stays UP when the gateway is down". Both must stay green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | Health, info and metrics endpoints | not written yet | — | checks not written yet | ⬜ |
-| 2 | Exposing endpoints safely | not written yet | — | checks not written yet | ⬜ |
-| 3 | Custom `HealthIndicator` | not written yet | — | checks not written yet | ⬜ |
-| 4 | Micrometer counters for transfers | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | expose `health,info,metrics` only; details; app info | `src/main/resources/application.properties` | `mvn -pl chapters/36-actuator test -Popen` | task 1 checks green | ⬜ |
+| 2 | `HealthIndicator` for the payments gateway | `src/main/java/ledgerly/PaymentsGatewayHealthIndicator.java` | same | task 2 checks green | ⬜ |
+| 3 | `ledgerly.transfers` counter, tag `outcome` | `TransferService.java` | same | task 3 checks green | ⬜ |
+| 4 | gateway in the readiness group only | `application.properties` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** Actuator, probes, metrics | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- What does `/actuator/health` UP really tell you? Which endpoints would you expose in production, and how?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- What Actuator gives; safe exposure?
+- Custom health; liveness vs readiness.
+- Business metrics with Micrometer.
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Don't expose every endpoint to the public internet
-- Health 'UP' only means the checks you configured passed
+- Never expose `*`.
+- Dependencies go in readiness, not liveness.
+- No ids as metric tags.
 
 ## ❓ Checks (letters only)
 
-1. Exposed over HTTP by default: A. `health` · B. every endpoint
-2. Health is `DOWN`. The HTTP status is: A. 200 · B. 503
-3. "UP" proves: A. the whole system works · B. the configured health checks passed
+1. The payments gateway is down. Kubernetes should: A. restart Ledgerly's pods · B. stop sending them traffic until it's back
+2. Which endpoint is safe to expose publicly? A. `/actuator/health` (status only) · B. `/actuator/env`
+3. Counting transfers by result: A. one counter `ledgerly.transfers` with tag `outcome` · B. a counter per account id
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Operations need to ask the running app if it is healthy, what version it is and how it is doing.
+**Why it matters.** "How do you monitor a Spring Boot app in production?" and "liveness vs readiness?" come up in almost every backend interview that mentions Kubernetes.
 
-**The concept.** Actuator adds endpoints like `/actuator/health` and `/actuator/metrics` so operations can ask the running app how it is. Only `health` is exposed over HTTP by default.
+**The concept.** Actuator is the app's dashboard. Health is the warning-light panel: each indicator is a bulb, and the overall status is DOWN if any bulb is. Kubernetes asks two different questions. **Liveness:** "are you stuck, should I restart you?" **Readiness:** "should I send you customers right now?" A broken partner is a readiness problem: Ledgerly is fine, it just can't take payments. Metrics are the meters: counters that only go up and that tools like Prometheus graph over time.
 
-**Small example.**
+**Small example.** Real results (tests and curl):
 
-```java
-@Component
-class CoreBankingHealth implements HealthIndicator {
-    public Health health() {
-        return gateway.ping() ? Health.up().withDetail("gateway", "reachable").build()
-                              : Health.down().withDetail("gateway", "timeout").build();
-    }
-}
-// counter: meterRegistry.counter("ledgerly.transfers", "result", "ok").increment();
-```
-
-| Case | Result | In or out, and why |
-|---|---|---|
-| `GET /actuator/health`, gateway reachable | `{"status":"UP"}` | details hidden unless you show them |
-| Gateway down | `{"status":"DOWN"}` with HTTP 503 | health groups map DOWN to 503 |
-| `GET /actuator/env` with defaults | 404 | not exposed over HTTP by default |
-| `management.endpoints.web.exposure.include=*` on a public port | config and heap dumps exposed ❌ | expose only what you need, behind auth |
-| `GET /actuator/metrics/ledgerly.transfers` (if `metrics` is exposed) | a count by `result` tag | your Micrometer counter |
+| Situation | `/actuator/health` | `/liveness` | `/readiness` | Why |
+|---|---|---|---|---|
+| gateway up | 200 UP, `paymentsGateway` `latencyMs: 42` | 200 | 200 | all bulbs on |
+| gateway down | 503 DOWN, `reason: connection refused` | 200 UP | 503 DOWN | gateway only in readiness |
+| `GET /actuator/env` | 404 | | | not exposed |
+| 2 transfers OK + 1 of 75,000 | | | | `outcome=ok` +2, `outcome=rejected` +1; the 75,000 one is a 422 |
 
 **Gotchas**
-- Don't expose every endpoint to the public internet.
-- Health 'UP' only means the checks you configured passed.
+- The indicator's bean name minus `HealthIndicator` is the component name (`paymentsGateway`).
+- A slow `health()` makes every probe slow; keep checks cheap or cached.
+- `management.server.port=8081` puts Actuator on a port that only the cluster can reach.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **A.** You opt in to the rest.
-2. **B.** So load balancers can react.
-3. **B.** Nothing more.
+1. **B.** Restarting healthy pods doesn't fix the partner.
+2. **A.** `env` can leak secrets.
+3. **A.** One name, a small fixed set of tag values; ids would explode the number of series.
 
 </details>
