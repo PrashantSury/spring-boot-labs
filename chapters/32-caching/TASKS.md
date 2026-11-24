@@ -1,69 +1,68 @@
 # Chapter 32 · Caching
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter32CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter32CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~45 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter32CheckTest` 13/13 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/32-caching test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/32-caching spring-boot:run` (prints timings and upstream call counts).
+- Fresh stub: 1/13 green (the self-invocation example; must stay green).
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `@EnableCaching`, `@Cacheable`, `@CacheEvict`, `@CachePut` | not written yet | — | checks not written yet | ⬜ |
-| 2 | Cache keys and conditions | not written yet | — | checks not written yet | ⬜ |
-| 3 | Cache providers: simple map vs Caffeine, with expiry | not written yet | — | checks not written yet | ⬜ |
-| 4 | Verifying a cache hit in a test | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | `@EnableCaching` + `@Cacheable("fxRates")` | `src/main/java/ledgerly/LedgerlyApplication.java`, `FxRateService.java` | `mvn -pl chapters/32-caching test -Popen` | task 1 checks green | ⬜ |
+| 2 | statement key + condition | `StatementService.java` | same | task 2 checks green | ⬜ |
+| 3 | `@CachePut` / `@CacheEvict` | `FxRateService.java` | same | task 3 checks green | ⬜ |
+| 4 | Caffeine spec | `src/main/resources/application.properties` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** abstraction, keys, staleness | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- How do you cache the branch list, keep it correct after a change, and prove the cache hit in a test?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- How does it work; the three annotations?
+- Keys and conditions?
+- Staleness and traps?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Caching works through a proxy, so self-invocation skips it
-- Caching mutable objects returns the same shared instance
+- `@EnableCaching` or nothing happens.
+- Self-invocation skips the cache.
+- Don't cache what still changes (this month's statement).
 
 ## ❓ Checks (letters only)
 
-1. Second call with the same arguments to a `@Cacheable` method: A. runs the method · B. returns the cached value
-2. Self-invocation of a `@Cacheable` method: A. uses the cache · B. skips it
-3. After a branch is added, the cache should be: A. left alone · B. evicted (or updated with `@CachePut`)
+1. `rate("USD")` is called 3 times with `@Cacheable`. Upstream calls: A. 3 · B. 1
+2. Which annotation ALWAYS runs the method and stores its result? A. `@Cacheable` · B. `@CachePut`
+3. `statement(1, lastMonth, "pdf")` then `("csv")` with the default key: A. one build · B. two builds
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** The branch list changes once a month but is read thousands of times per minute.
+**Why it matters.** "How would you speed up this endpoint?" almost always leads to caching, then straight to "and how do you invalidate it?", the famously hard part.
 
-**The concept.** `@Cacheable` stores a method's result by its arguments and returns the stored copy next time, without running the method. `@CacheEvict` removes entries when the data changes.
+**The concept.** A cache is the sticky note on the teller's desk with today's dollar rate. `@Cacheable` reads the note first and only calls head office when there is none. `@CachePut` writes a new note (the treasury changed the rate). `@CacheEvict` throws notes away (end of day). Caffeine's `expireAfterWrite` makes notes fade by themselves after 10 minutes, so even a forgotten eviction cannot serve yesterday's rate.
 
-**Small example.**
+**Small example.** Real counts from the tests (upstream = paid API calls):
 
-```java
-@Cacheable("branches")
-public List<Branch> all() { System.out.println("DB hit"); return repo.findAll(); }
-
-@CacheEvict(value = "branches", allEntries = true)
-public void add(Branch b) { repo.save(b); }
-```
-
-| Case | Result | In or out, and why |
+| Calls | Upstream calls | Why |
 |---|---|---|
-| `all()` called twice | `DB hit` printed once | the second call is served from the cache |
-| `add(...)`, then `all()` | `DB hit` again | the eviction cleared the entry |
-| Another method in the same class calls `this.all()` | `DB hit` every time ❌ | caching works through a proxy |
-| Caller mutates the returned list | every later caller sees the change ❌ | the cache returns the same shared instance |
-| Caffeine with `expireAfterWrite=1h` | entries refresh at least hourly | the simple map cache never expires |
+| `rate(USD)` ×3 | 1 | hit after the first |
+| `rate(USD)`, `rate(EUR)`, `rate(USD)` | 2 | key = currency |
+| `rate(USD)`, `override(USD, 84.00)`, `rate(USD)` | 1, returns 84.00 | put replaced the note |
+| `rate(USD)`, `rate(EUR)`, `endOfDay()`, both again | 4 | allEntries evict |
+| statement(1, last month, pdf / csv / pdf) | 1 build | key ignores format |
+| statement(1, this month) ×2 | 2 builds | condition: not cached |
+| `usdTwiceInternally()` | 2 | `this.rate` skips the proxy |
 
 **Gotchas**
-- Caching works through a proxy, so self-invocation skips it.
-- Caching mutable objects returns the same shared instance.
+- The default key uses all parameters; with none it is `SimpleKey.EMPTY` (one entry for everything).
+- `condition` is checked before the call; `unless` after (it can use `#result`).
+- Without Caffeine on the classpath Boot uses a `ConcurrentHashMap`: no expiry, no size limit, a slow memory leak.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** That is the point.
-2. **B.** No proxy, no cache.
-3. **B.** Otherwise readers get stale data.
+1. **B.** Hits come from memory.
+2. **B.** `@Cacheable` skips the method on a hit.
+3. **B.** The default key includes `format`, so pdf and csv are different entries.
 
 </details>

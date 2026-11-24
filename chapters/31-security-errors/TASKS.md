@@ -1,72 +1,67 @@
 # Chapter 31 · Security errors
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter31CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter31CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~40 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter31CheckTest` 12/12 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/31-security-errors test -Popen` (without `-Popen` the checks are skipped).
+- App: `mvn -pl chapters/31-security-errors spring-boot:run` (port 8096; `asha`/`asha-pass`, `ops`/`ops-pass`).
+- Fresh stub: 3/12 green: the examples and the two "ops is allowed" checks. They must stay green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | `AuthenticationEntryPoint` for 401 | not written yet | — | checks not written yet | ⬜ |
-| 2 | `AccessDeniedHandler` for 403 | not written yet | — | checks not written yet | ⬜ |
-| 3 | Where security exceptions are handled vs `@ControllerAdvice` | not written yet | — | checks not written yet | ⬜ |
-| 4 | MockMvc tests for 401, 403 and 200 | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | 401 problem + `WWW-Authenticate` | `src/main/java/ledgerly/ProblemEntryPoint.java` | `mvn -pl chapters/31-security-errors test -Popen` | task 1 checks green | ⬜ |
+| 2 | 403 problem + WARN log | `ProblemDeniedHandler.java` | same | task 2 checks green | ⬜ |
+| 3 | wire into `httpBasic` + `exceptionHandling` | `SecurityConfig.java` | same | task 3 checks green | ⬜ |
+| 4 | re-throw `AccessDeniedException` in the advice | `ApiErrors.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** 401 vs 403, filters vs advice | `interview-answer.md` | graded by Lumi | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- Where is a 401 produced, where is a 403 produced, and why can't `@ControllerAdvice` handle the filter ones?
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- 401 vs 403; which components?
+- Why not `@ControllerAdvice`; how to customise?
+- Catch-all + method security?
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- `@ExceptionHandler` does not catch security-filter exceptions
-- A missing token is 401; a valid token without permission is 403
+- Advice can't see filter exceptions.
+- Wire the entry point into `httpBasic` too.
+- Don't leak the reason in a 401.
 
 ## ❓ Checks (letters only)
 
-1. Missing token. Which component answers? A. `AccessDeniedHandler` · B. `AuthenticationEntryPoint`
-2. Valid token, wrong role on a URL rule. Status: A. 401 · B. 403
-3. `@ExceptionHandler` catches exceptions thrown in security filters: A. yes · B. no
+1. A request with no credentials to a protected URL is answered by: A. `@ControllerAdvice` · B. the `AuthenticationEntryPoint`
+2. A logged-in user without the role: A. 401 · B. 403
+3. A `@PreAuthorize` denial with a `@ExceptionHandler(Exception.class)` returning 500 and no other handler gives: A. 403 · B. 500
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Clients must get a clean JSON 401 or 403, not an HTML login page or an empty body.
+**Why it matters.** "401 or 403?" is a classic screening question, and "why does my custom error handler not work for security?" is one of the most asked Spring Security questions online.
 
-**The concept.** Security failures happen in filters, before any controller. An `AuthenticationEntryPoint` writes the 401 body and an `AccessDeniedHandler` writes the 403 body.
+**The concept.** A request passes the security guard (filters) before it reaches the bank counter (controllers). `@ControllerAdvice` works at the counter. The guard has two scripts of its own: the **entry point** ("please show your ID", 401) and the **denied handler** ("you're not allowed in here", 403). `ExceptionTranslationFilter` chooses the script. One exception: a `@PreAuthorize` refusal happens *at* the counter, so the advice sees it first and must step aside.
 
-**Small example.**
+**Small example.** Real results:
 
-```java
-http.exceptionHandling(e -> e
-    .authenticationEntryPoint((req, res, ex) -> {
-        res.setStatus(401); res.setContentType("application/json");
-        res.getWriter().write("{\"status\":401,\"message\":\"Login required\"}");
-    })
-    .accessDeniedHandler((req, res, ex) -> {
-        res.setStatus(403); res.setContentType("application/json");
-        res.getWriter().write("{\"status\":403,\"message\":\"Access denied\"}");
-    }));
-```
-
-| Case | Result | In or out, and why |
-|---|---|---|
-| No token | 401 `{"status":401,"message":"Login required"}` | the entry point |
-| Valid token, lacks the role (URL rule) | 403 `{"status":403,...}` | the access-denied handler |
-| Valid token, `@PreAuthorize` denies inside a controller method | handled by your `@ControllerAdvice` if it maps `AccessDeniedException` | that exception is thrown inside the `DispatcherServlet` |
-| No custom handlers, browser request | possibly a login page or an empty body | defaults are made for web apps |
+| Request | Who answers | Status | Body |
+|---|---|---|---|
+| `GET /me`, no login | entry point | 401 | problem `Login required` |
+| `GET /me`, wrong password | `httpBasic` entry point (yours after task 3) | 401 | same problem |
+| `GET /admin/audit` as asha | denied handler | 403 | problem `Forbidden` |
+| `POST /accounts/1/freeze` as asha | advice re-throws → denied handler | 403 | problem `Forbidden` |
+| `GET /accounts/9` as asha | `@ControllerAdvice` | 404 | problem `no account 9` |
+| `GET /accounts/9`, no login | entry point | 401 | security first |
 
 **Gotchas**
-- `@ExceptionHandler` does not catch security-filter exceptions.
-- A missing token is 401; a valid token without permission is 403.
+- In a JWT filter (chapter 27) the filter writes its own 401; use the same `Problems.write` there.
+- `HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)` is the built-in "just a status" entry point.
+- 403 handlers are a good place for an audit log; 401s are noisy (every expired token).
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Not authenticated → entry point.
-2. **B.** Authenticated but not allowed.
-3. **B.** Filters run before the `DispatcherServlet`.
+1. **B.** The advice is never reached.
+2. **B.** Known user, missing permission.
+3. **B.** The catch-all wins unless a more specific handler re-throws.
 
 </details>

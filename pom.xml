@@ -69,5 +69,8 @@
     <module>chapters/28-roles-and-authorities</module>
     <module>chapters/29-method-security</module>
     <module>chapters/30-access-and-refresh-tokens</module>
+    <module>chapters/31-security-errors</module>
+    <module>chapters/32-caching</module>
+    <module>chapters/33-transactions-and-locking</module>
   </modules>
 </project>
