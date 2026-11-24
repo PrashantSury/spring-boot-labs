@@ -1,67 +1,66 @@
 # Chapter 40 · Interview: Spring core
 
-**Time:** ~60 min · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter40CheckTest` all green + interview answer ≥ 7/10
-
-> Not written yet: this chapter has no stub files and no `Chapter40CheckTest`. The tasks come from the [README](README.md)'s planned topics.
+**Time:** ~60 min + 20 min answers · **Status:** ⬜ paused (banking-app is the active Spring work) · **Done when:** `Chapter40CheckTest` 13/13 ✅ + interview ≥ 7/10
 
 ## ✅ Tasks
 
+- Run from the repo root: `mvn -pl chapters/40-interview-spring-core test -Popen` (without `-Popen` the checks are skipped).
+- Tour: `mvn -q -pl chapters/40-interview-spring-core spring-boot:run` (add `-Dspring-boot.run.profiles=prod` for task 3). H2, no Docker.
+- Fresh stub: 2/13 green: the transfer example and "the default backs off" (true on the stub because there is no default yet). Both must stay green.
+
 | # | Task | File | Run | Done when | Status |
 |---|---|---|---|---|---|
-| 1 | Beans, scopes, lifecycle and injection | not written yet | — | checks not written yet | ⬜ |
-| 2 | Auto-configuration and `@SpringBootApplication` | not written yet | — | checks not written yet | ⬜ |
-| 3 | Profiles, properties and proxies | not written yet | — | checks not written yet | ⬜ |
-| 4 | AOP and transactions in one clear story | not written yet | — | checks not written yet | ⬜ |
-| 5 | **(Interview)** see below | — | aloud, 60-90 s | ≥ 7/10 | ⬜ |
+| 1 | fresh prototype per call (`ObjectProvider`) | `src/main/java/ledgerly/StatementPrinter.java` | `mvn -pl chapters/40-interview-spring-core test -Popen` | task 1 checks green | ⬜ |
+| 2 | auto-configuration with `@ConditionalOnMissingBean` + imports file | `src/main/java/dev/ledgerly/fx/FxAutoConfiguration.java`, `src/main/resources/META-INF/spring/...AutoConfiguration.imports` | same | task 2 checks green | ⬜ |
+| 3 | `@ConfigurationProperties` + defaults + prod profile | `LimitsProperties.java`, `LedgerlyApplication.java`, `application-prod.properties` | same | task 3 checks green | ⬜ |
+| 4 | audit survives rollback (`REQUIRES_NEW` in its own bean) | `AuditWriter.java`, `TransferService.java` | same | task 4 checks green | ⬜ |
+| 5 | **(Interview)** four spoken answers, bank example first | `interview-answer.md` | graded by Lumi, then aloud 60–90 s each | ≥ 7/10 | ⬜ |
 
-## 🎤 Interview
+## 🎤 Interview (task 5)
 
-- In 90 seconds: explain how `@Transactional` works, using a transfer, and name two ways it silently doesn't apply.
-- Answer with a Ledgerly example, what goes wrong, and the fix.
+- Scopes; a prototype in a singleton.
+- Auto-configuration: how it decides; overriding.
+- Profiles + `@ConfigurationProperties`.
+- 90 s: `@Transactional` in a transfer + two silent failures.
 
-## ⚠️ Traps (from the README)
+## ⚠️ Traps
 
-- Answer with an example from the bank, not a definition
-- Say what goes wrong, not only what works
+- Example first, then what goes wrong, then the fix.
+- Self-invocation skips the proxy.
+- Checked exceptions commit by default.
 
 ## ❓ Checks (letters only)
 
 1. A strong answer starts with: A. a textbook definition · B. the default behaviour plus a concrete example
 2. Two ways `@Transactional` silently doesn't apply: A. self-invocation; a checked exception doesn't roll back · B. a public method; an unchecked exception
-3. A prototype injected into a singleton is created: A. per call · B. once, when the singleton is built
+3. The app defines its own `FxRates` bean and the starter has `@ConditionalOnMissingBean FxRates`. Beans of type `FxRates`: A. 1 · B. 2
 
-<details><summary>📖 Teaching</summary>
+<details><summary>📖 Teaching (read before task 1)</summary>
 
-**Why it matters.** Rehearse the questions that a senior Java interviewer asks about Spring core.
+**Why it matters.** The Spring core round is where "I've used Spring" turns into "I understand Spring". Every question below has a follow-up that asks what goes wrong.
 
-**The concept.** Rehearse Spring core answers as short stories from the bank: what Spring does by default, what goes wrong, and how you fixed it.
+**The concept.** Spring is a factory with a parts list. Scopes say how many of each part it makes (one shared, or one per request for it). Auto-configuration is the factory's "default fittings" sheet: each default is fitted only if its conditions hold, for example "only if you didn't bring your own". Properties and profiles are the settings dial, with a different preset for prod. Proxies are the wrappers the factory puts around parts to add transactions, and a part talking to itself never goes through its wrapper.
 
-**Small example.**
+**Small example.** Real results (tour and tests):
 
-```text
-Q: "Is a singleton bean thread-safe?"
-Weak:   "No."
-Strong: "No. One TransferService serves every thread, so a field like runningTotal races.
-         I keep beans stateless; shared totals go to the database with an atomic UPDATE."
-```
-
-| Case | Result | In or out, and why |
-|---|---|---|
-| Definition only | 4-5/10 | no example, no failure mode |
-| Definition + bank example | 6-7/10 | shows you've used it |
-| Example + what goes wrong + fix + trade-off | 8-10/10 | the senior answer |
-| Topics to cover | beans, scopes, lifecycle, injection, auto-configuration, profiles, proxies, AOP + transactions | from Chapters 3-7, 21, 34 |
+| Topic | Stub (bug) | Finished | The sentence for the interview |
+|---|---|---|---|
+| scopes | 2nd statement `#1: rent … \| salary … \| fd interest 1200` | `#2: fd interest 1200` | a prototype in a singleton's constructor is created once |
+| auto-config | `FxRates = none` | `FixedFxRates`; with your own bean, yours wins | defaults back off with `@ConditionalOnMissingBean` |
+| properties | `limits null` | 50000 / 20; prod 200000 / 20 | the profile file overrides only the keys it sets |
+| transactions | 75000 fails → audit rows 0 | audit rows 1 | `REQUIRES_NEW` needs a call through the proxy |
 
 **Gotchas**
-- Answer with an example from the bank, not a definition.
-- Say what goes wrong, not only what works.
+- `@SpringBootApplication` = `@SpringBootConfiguration` + `@EnableAutoConfiguration` + `@ComponentScan` (of its own package and below).
+- `--debug` (or `debug=true`) prints the condition evaluation report: why each auto-configuration did or didn't apply.
+- Property precedence, highest first: command line, environment variables, `application-{profile}.properties`, `application.properties`, `@DefaultValue`.
 
 </details>
 
-<details><summary>🔒 Answers</summary>
+<details><summary>🔒 Answers (checks)</summary>
 
-1. **B.** Then the failure and the fix.
-2. **A.** Both are proxy and rollback-rule traps.
-3. **B.** Use `ObjectProvider` for per-call instances.
+1. **B.** Behaviour plus an example beats a definition.
+2. **A.** Both are silent: no error, just no transaction behaviour.
+3. **A.** The default backs off.
 
 </details>

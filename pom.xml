@@ -78,5 +78,7 @@
     <module>chapters/37-events-and-scheduling</module>
     <module>chapters/38-project-the-transfers-service</module>
     <module>chapters/39-project-secure-transfers</module>
+    <module>chapters/40-interview-spring-core</module>
+    <module>chapters/41-interview-data-and-web</module>
   </modules>
 </project>
