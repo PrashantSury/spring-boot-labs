@@ -75,5 +75,8 @@
     <module>chapters/34-aop</module>
     <module>chapters/35-calling-other-services-with-restclient</module>
     <module>chapters/36-actuator</module>
+    <module>chapters/37-events-and-scheduling</module>
+    <module>chapters/38-project-the-transfers-service</module>
+    <module>chapters/39-project-secure-transfers</module>
   </modules>
 </project>
